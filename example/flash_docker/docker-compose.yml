@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  flash:
+    container_name: flash
+    build: ../minigame
+    ports:
+      - "25565:25565"
+    restart: always
+    volumes:
+      - ../maps/spawn:/opt/paper/spawn
+      - ../mcserver/worlds:/opt/paper/plugins/Flash/maps
+      - ../mcserver/server.properties:/opt/paper/server.properties
+      - ../mcserver/ops.json:/opt/paper/ops.json

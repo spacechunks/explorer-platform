@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: harbor-ingress
+spec:
+  ingressClassName: haproxy
+  tls:
+    - hosts:
+        - reg1.chunks.76k.io
+      secretName: harbor-ingress-cert
+  rules:
+    - http:
+        paths:
+          - backend:
+              service:
+                name: harbor-core
+                port:
+                  number: 80
+            path: /api/
+            pathType: Prefix
+          - backend:
+              service:
+                name: harbor-core
+                port:
+                  number: 80
+            path: /service/
+            pathType: Prefix
+          - backend:
+              service:
+                name: harbor-core
+                port:
+                  number: 80
+            path: /v2/
+            pathType: Prefix
+          - backend:
+              service:
+                name: harbor-core
+                port:
+                  number: 80
+            path: /chartrepo/
+            pathType: Prefix
+          - backend:
+              service:
+                name: harbor-core
+                port:
+                  number: 80
+            path: /c/
+            pathType: Prefix
+          - backend:
+              service:
+                name: harbor-portal
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix

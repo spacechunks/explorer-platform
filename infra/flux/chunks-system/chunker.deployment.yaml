@@ -1,0 +1,33 @@
+apiVersion: apps/v1 #  for k8s versions before 1.9.0 use apps/v1beta2  and before 1.8.0 use extensions/v1beta1
+kind: Deployment
+metadata:
+  name: chunker
+spec:
+  selector:
+    matchLabels:
+      app: chunker
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: chunker
+    spec:
+      imagePullSecrets:
+        - name: ghcr-auth
+      containers:
+        - name: app
+          imagePullPolicy: Always
+          image: ghcr.io/freggy/chunker:0.0.0
+          env:
+            - name: CHUNKER_SRC_OCI_REG_USER
+              value: robot$chunks-system
+            - name: CHUNKER_SRC_OCI_REG_PASS
+              value: QenxGhigrVcomFWh5qaG2H3DvBWwZV7q
+            - name: CHUNKER_DST_OCI_REG_USER
+              value: robot$chunks-system
+            - name: CHUNKER_DST_OCI_REG_PASS
+              value: QenxGhigrVcomFWh5qaG2H3DvBWwZV7q
+            - name: CHUNKER_DST_OCI_REG_URL
+              value: reg1.chunks.76k.io
+          ports:
+            - containerPort: 5080

@@ -1,0 +1,256 @@
+package image
+
+import (
+	"archive/tar"
+	"bytes"
+	"errors"
+	"fmt"
+	ociv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/static"
+	"github.com/google/go-containerregistry/pkg/v1/types"
+	"golang.org/x/sync/errgroup"
+	"io"
+	"log"
+	"path/filepath"
+	"slices"
+	"strings"
+	"time"
+)
+
+// TODO: tests
+
+type File struct {
+	AbsPath string
+	RelPath string
+	Content []byte
+	Size    int64
+	Dir     bool
+}
+
+// FIXME: refactor code a little bit
+
+func UnpackFile(img ociv1.Image, path string) (File, error) {
+	layers, err := img.Layers()
+	if err != nil {
+		return File{}, fmt.Errorf("image layers: %w", err)
+	}
+
+	// we will find our file most likely in
+	// the latest layers that have been added.
+	// new layers are appended to the end of the
+	// slice, so we have to reverse it.
+	slices.Reverse(layers)
+
+	for _, l := range layers {
+		data, err := l.Uncompressed()
+		if err != nil {
+			return File{}, fmt.Errorf("layer uncompressed: %w", err)
+		}
+		defer data.Close()
+		tr := tar.NewReader(data)
+		for {
+			hdr, err := tr.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return File{}, fmt.Errorf("tar next: %w", err)
+			}
+			if hdr.Typeflag == tar.TypeDir {
+				continue
+			}
+			// tar deals with relative paths, so make em absolute
+			abs := fmt.Sprintf("/%s", hdr.Name)
+			if abs != path {
+				continue
+			}
+			var content = &bytes.Buffer{}
+			if _, err := io.Copy(content, tr); err != nil {
+				return File{}, fmt.Errorf("copy config bytes: %w", err)
+			}
+			return File{
+				AbsPath: abs,
+				RelPath: strings.TrimPrefix(abs, path),
+				Content: content.Bytes(),
+				Size:    hdr.Size,
+			}, nil
+		}
+	}
+
+	return File{}, errors.New("file not found")
+}
+
+// cmap maps each element concurrently using an errgroup.Group.
+// returns a slice with containing the mapped elements.
+func cmap[T any, L any](in []L, fn func(layer L) (T, error)) ([]T, error) {
+	g := &errgroup.Group{}
+	s := make([]T, len(in))
+	for i, val := range in {
+		i, val := i, val
+		g.Go(func() error {
+			ret, err := fn(val)
+			if err != nil {
+				return err
+			}
+			s[i] = ret
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("uncompress in: %v", err)
+	}
+	return s, nil
+}
+
+// UnpackDir applies each layers change set for a given directory.
+// Returns all files living under the specified path.
+func UnpackDir(img ociv1.Image, path string) ([]File, error) {
+	layers, err := img.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("image layers: %w", err)
+	}
+	uncompressed, err := cmap(layers, func(l ociv1.Layer) (io.ReadCloser, error) {
+		data, err := l.Uncompressed()
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("uncompress layers: %v", err)
+	}
+
+	// iterate over each uncompressed layer
+	// oldest to latest reading the change sets
+	changeSets, err := cmap(uncompressed, func(data io.ReadCloser) (map[string]File, error) {
+		// fmap stores the file hierarchy
+		// mapping path to file object
+		fmap := make(map[string]File)
+		tr := tar.NewReader(data)
+		defer data.Close()
+
+		t1 := time.Now()
+		for {
+			hdr, err := tr.Next()
+			if err == io.EOF {
+				break
+			}
+			// tar deals with relative paths, so make em absolute
+			abs := fmt.Sprintf("/%s", hdr.Name)
+			// make sure we are within path
+			if !strings.HasPrefix(abs, path) {
+				continue
+			}
+			if hdr.Typeflag == tar.TypeDir {
+				fmap[abs] = File{
+					AbsPath: abs,
+					RelPath: strings.TrimPrefix(abs, path),
+					Dir:     true,
+				}
+				continue
+			}
+
+			var content = &bytes.Buffer{}
+			if _, err := io.Copy(content, tr); err != nil {
+				return nil, fmt.Errorf("copy config bytes: %w", err)
+			}
+			fmap[abs] = File{
+				AbsPath: abs,
+				RelPath: strings.TrimPrefix(abs, path),
+				Content: content.Bytes(),
+				Size:    hdr.Size,
+			}
+		}
+
+		t2 := time.Now()
+		log.Printf("layer: %v", t2.Sub(t1))
+		return fmap, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("change sets: %v", err)
+	}
+
+	final := make(map[string]File)
+	for _, cs := range changeSets {
+		for abs, file := range cs {
+			// files which should be removed are prefixed with .wh
+			// see: https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/layer.md#L246
+			//
+			// filename := .wh.myscript.sh
+			filename := filepath.Base(abs)
+			if strings.HasPrefix(filename, ".wh") {
+				var (
+					// filename := myscript.sh
+					f   = filename[4:]
+					dir = filepath.Dir(abs)
+					// remove all files under p
+					rmAll = func(m map[string]File, p string) {
+						for k := range final {
+							if !strings.HasPrefix(k, p) {
+								continue
+							}
+							delete(final, k)
+						}
+					}
+				)
+				// this indicates that the all files
+				// contained within the directory should be deleted.
+				// example: /dir1/dir2/.wh..wh..opq
+				// see https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/layer.md#L284
+				if filename == ".wh..opq" {
+					rmAll(final, dir)
+					continue
+				}
+				// path := <path-to-dir>/myscript.sh
+				path := fmt.Sprintf("%s/%s", filepath.Dir(abs), f)
+				// .wh prefixed directories should also be removed completely
+				if file.Dir {
+					rmAll(final, path)
+					continue
+				}
+				delete(final, path)
+				continue
+			}
+			final[abs] = file
+		}
+	}
+
+	return values(final), nil
+}
+
+// AppendLayerFromFiles returns a new image object containing the appended layer
+func AppendLayerFromFiles(img ociv1.Image, files []File) (ociv1.Image, error) {
+	var w bytes.Buffer
+	tarw := tar.NewWriter(&w)
+	for _, f := range files {
+		hdr := &tar.Header{
+			Typeflag: tar.TypeReg,
+			Name:     f.AbsPath,
+			Size:     f.Size,
+		}
+		if f.Dir {
+			hdr.Typeflag = tar.TypeDir
+		}
+		if err := tarw.WriteHeader(hdr); err != nil {
+			return nil, fmt.Errorf("write hdr: %w", err)
+		}
+		if _, err := tarw.Write(f.Content); err != nil {
+			return nil, fmt.Errorf("write file content: %w", err)
+		}
+	}
+	tarw.Close()
+	ret, err := mutate.AppendLayers(img, static.NewLayer(w.Bytes(), types.DockerUncompressedLayer))
+	if err != nil {
+		return nil, fmt.Errorf("append layer: %w", err)
+	}
+	return ret, nil
+}
+
+func values(m map[string]File) []File {
+	s := make([]File, 0, len(m))
+	for _, f := range m {
+		s = append(s, f)
+	}
+	return s
+}
