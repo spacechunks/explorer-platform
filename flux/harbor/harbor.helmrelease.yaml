@@ -1,0 +1,218 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: harbor
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: harbor
+      version: 1.13.1
+      sourceRef:
+        kind: HelmRepository
+        name: harbor
+        namespace: harbor
+      interval: 1m
+  values:
+    expose:
+      type: ingress
+      tls:
+        enabled: true
+        certSource: secret
+        secretName: harbor-ingress-cert
+      ingress:
+        hosts:
+          core: reg1.chunks.76k.io
+        className: haproxy
+        annotations:
+          ingress.kubernetes.io/ssl-redirect: "true"
+          ingress.kubernetes.io/proxy-body-size: "0"
+    externalURL: https://reg1.chunks.76k.io
+    ipFamily:
+      ipv4:
+        enabled: true
+    persistence:
+      enabled: true
+      # Setting it to "keep" to avoid removing PVCs during a helm delete
+      # operation. Leaving it empty will delete PVCs after the chart deleted
+      # (this does not apply for PVCs that are created for internal database
+      # and redis components, i.e. they are never deleted automatically)
+      resourcePolicy: "keep"
+      persistentVolumeClaim:
+        jobservice:
+          jobLog:
+            existingClaim: ""
+            storageClass: ""
+            subPath: ""
+            accessMode: ReadWriteOnce
+            size: 1Gi
+            annotations: {}
+        trivy:
+          existingClaim: ""
+          storageClass: ""
+          subPath: ""
+          accessMode: ReadWriteOnce
+          size: 5Gi
+          annotations: {}
+      imageChartStorage:
+        # Specify whether to disable `redirect` for images and chart storage, for
+        # backends which not supported it (such as using minio for `s3` storage type), please disable
+        # it. To disable redirects, simply set `disableredirect` to `true` instead.
+        # Refer to
+        # https://github.com/distribution/distribution/blob/main/docs/configuration.md#redirect
+        # for the detail.
+        disableredirect: true
+        type: s3
+        s3:
+          # Set an existing secret for S3 accesskey and secretkey
+          # keys in the secret should be REGISTRY_STORAGE_S3_ACCESSKEY and REGISTRY_STORAGE_S3_SECRETKEY for registry
+          #existingSecret: "r0t_dy3aTgrjrfjSb2QWE_mvFM9nTmmQp4ZH_OHP"
+          region: auto
+          bucket: chunks-76k
+          accesskey: 2835c97483a4190bc387497b34b45721
+          secretkey: e2b9a37b3e9481756871510a5ca73357b136b1920f34ba3eb8d8ccb10eab78d7
+          regionendpoint: https://57031cd6e0fe998dd78065736db477dc.r2.cloudflarestorage.com
+          chunksize: "5242880"
+    # debug, info, warning, error or fatal
+    logLevel: debug
+    harborAdminPassword: "Harbor12345"
+    portal:
+      image:
+        tag: v2.9.1
+      replicas: 1
+      resources:
+        requests:
+          memory: 256Mi
+          #cpu: 100m
+    core:
+      image:
+        tag: v2.9.1
+      replicas: 1
+      initialDelaySeconds: 10
+      resources:
+        requests:
+          memory: 256Mi
+          #cpu: 100m
+      configureUserSettings:
+      # The provider for updating project quota(usage), there are 2 options, redis or db.
+      # By default it is implemented by db but you can configure it to redis which
+      # can improve the performance of high concurrent pushing to the same project,
+      # and reduce the database connections spike and occupies.
+      # Using redis will bring up some delay for quota usage updation for display, so only
+      # suggest switch provider to redis if you were ran into the db connections spike around
+      # the scenario of high concurrent pushing to same project, no improvment for other scenes.
+      quotaUpdateProvider: redis
+      # Fill in the name of a kubernetes secret if you want to use your own
+      # TLS certificate and private key for token encryption/decryption.
+      # The secret must contain keys named:
+      # "tls.key" - the private key
+      # "tls.crt" - the certificate
+      secretName: harbor-token-cert
+    jobservice:
+      image:
+        tag: v2.9.1
+      replicas: 1
+      maxJobWorkers: 10
+      jobLoggers:
+        # - file
+        # - database
+        - stdout
+      notification:
+        webhook_job_max_retry: 3
+        webhook_job_http_client_timeout: 3 # in seconds
+      reaper:
+        max_update_hours: 24
+        max_dangling_hours: 168
+        resources:
+          requests:
+            memory: 256Mi
+            #cpu: 100m
+    registry:
+      automountServiceAccountToken: true
+      registry:
+        image:
+          tag: v2.9.1
+        resources:
+          requests:
+            memory: 256Mi
+            #cpu: 100m
+      controller:
+        image:
+          tag: v2.9.1
+        resources:
+          requests:
+            memory: 256Mi
+            #cpu: 100m
+      replicas: 1
+      # Secret is used to secure the upload state from client
+      # and registry storage backend.
+      # See: https://github.com/distribution/distribution/blob/main/docs/configuration.md#http
+      # If a secret key is not specified, Helm will generate one.
+      # Must be a string of 16 chars.
+      secret: ""
+      relativeurls: false
+      credentials:
+        username: "harbor_registry_user"
+        password: "harbor_registry_password"
+        # If using existingSecret, the key must be REGISTRY_PASSWD and REGISTRY_HTPASSWD
+        existingSecret: ""
+        # Login and password in htpasswd string format. Excludes `registry.credentials.username`  and `registry.credentials.password`. May come in handy when integrating with tools like argocd or flux. This allows the same line to be generated each time the template is rendered, instead of the `htpasswd` function from helm, which generates different lines each time because of the salt.
+        # htpasswdString: $apr1$XLefHzeG$Xl4.s00sMSCCcMyJljSZb0 # example string
+      # enable purge _upload directories
+      upload_purging:
+        enabled: true
+        # remove files in _upload directories which exist for a period of time, default is one week.
+        age: 168h
+        # the interval of the purge operations
+        interval: 24h
+        dryrun: false
+    trivy:
+      enabled: false
+    database:
+      type: external
+      external:
+        host: pg.data.svc.cluster.local
+        port: 5432
+        username: admin
+        password: admin
+        coreDatabase: harbor
+        sslmode: disable
+    redis:
+      type: external
+      external:
+        # support redis, redis+sentinel
+        # addr for redis: <host_redis>:<port_redis>
+        # addr for redis+sentinel: <host_sentinel1>:<port_sentinel1>,<host_sentinel2>:<port_sentinel2>,<host_sentinel3>:<port_sentinel3>
+        addr: "redis.data.svc.cluster.local:6379"
+
+        # The name of the set of Redis instances to monitor, it must be set to support redis+sentinel
+        sentinelMasterSet: ""
+        # The "coreDatabaseIndex" must be "0" as the library Harbor
+        # used doesn't support configuring it
+        # harborDatabaseIndex defaults to "0", but it can be configured to "6", this config is optional
+        # cacheLayerDatabaseIndex defaults to "0", but it can be configured to "7", this config is optional
+        coreDatabaseIndex: "0"
+        jobserviceDatabaseIndex: "1"
+        registryDatabaseIndex: "2"
+        trivyAdapterIndex: "5"
+        # harborDatabaseIndex: "6"
+        # cacheLayerDatabaseIndex: "7"
+        # username field can be an empty string, and it will be authenticated against the default user
+        username: ""
+        password: ""
+        # If using existingSecret, the key must be REDIS_PASSWORD
+        existingSecret: ""
+    exporter:
+      replicas: 1
+      revisionHistoryLimit: 10
+      resources:
+        requests:
+          memory: 256Mi
+          #cpu: 100m
+      automountServiceAccountToken: true
+      image:
+        repository: goharbor/harbor-exporter
+        tag: v2.9.1
+      cacheDuration: 23
+      cacheCleanInterval: 14400

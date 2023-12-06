@@ -1,0 +1,9 @@
+* find S3 product which is working 
+  * cloudflare r2 is seemingly sometimes not working,
+    due to MultiPartUpload not being implemented correctly.
+
+## not needed for POC
+* handle PVC
+* block endpoint except registry ones
+* redis HA deployment
+* pg HA deployment
