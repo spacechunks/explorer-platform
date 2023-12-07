@@ -16,7 +16,7 @@ type Config struct {
 	Variants   []Variant `yaml:"variants"`
 }
 
-type OCIArtifact struct {
+type OCIArtifact struct { // TODO: better name
 	User string
 	Pass string
 	URL  string

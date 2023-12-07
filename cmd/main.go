@@ -58,13 +58,11 @@ func main() {
 					URL:  "ghcr.io",
 					Repo: "freggy/internal",
 				}
-
 				m := chunk.Meta{
 					// replace here to ensure we can use the id as a valid name everywhere
 					ChunkID:      strings.Replace(ref.Context().RepositoryStr(), "/", "-", -1),
 					ChunkVersion: ref.Identifier(),
 				}
-
 				chunkConf, err := chunk.ProcessImage(src, internalRepo, configPath)
 				if err != nil {
 					log.Printf("process img: %v", err)

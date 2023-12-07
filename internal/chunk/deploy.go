@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/chunks76k/internal/db"
+	"github.com/cloudflare/cloudflare-go"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,11 +16,13 @@ import (
 	"k8s.io/utils/pointer"
 	"log"
 	"sync"
+	"time"
 )
 
 const ns = "chunks-system"
 
 func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn *pgx.Conn) error {
+	// TODO: run multiple versions at the same time?
 	// TODO:
 	// collect how many servers running this mode are live
 	// * do this by quering all configured kubernetes endpoints
@@ -30,7 +33,6 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn
 	//   user data atm
 	// project name is globally unique
 	var deploys []db.VariantDeployment
-	// TODO: run multiple versions at the same time?
 	dao := db.New(conn)
 	deploys, err := dao.ListVariantDeploys(ctx, pgtype.Text{
 		String: meta.ChunkID,
@@ -38,10 +40,13 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn
 	if err != nil {
 		return fmt.Errorf("list variant deploys %w", err)
 	}
+
 	// we have currently no deployments running
 	// can happen if we deploy the chunk for the
 	// first time
 	if len(deploys) == 0 {
+		// TODO: choose in which cluster variant will run
+		// TODO: write to variant_deployment table
 		log.Printf("no variant deployment found\n")
 		for _, v := range conf.Variants {
 			// TODO: need variant deployment as domain object
@@ -81,7 +86,7 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn
 				// TODO: better reconcile:
 				// * redeploy deleted resources
 				imgRef := fmt.Sprintf("%s:%s-%s", imgRepo, meta.ChunkVersion, v.ID)
-				err = reconcileVariantReplicas(ctx, deploy, imgRef, i)
+				err = reconcileVariantReplica(ctx, deploy, imgRef, i)
 				if err != nil {
 					log.Printf(
 						"reconcile mode=%s variant=%s replica=%d err=%v",
@@ -97,11 +102,12 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn
 		if err != nil {
 			return fmt.Errorf("reconcile: %w", err)
 		}
+
 	}
 	return nil
 }
 
-func reconcileVariantReplicas(
+func reconcileVariantReplica(
 	ctx context.Context,
 	deploy db.VariantDeployment,
 	imgRef string,
@@ -118,8 +124,7 @@ func reconcileVariantReplicas(
 		return fmt.Errorf("clientset: %w", err)
 	}
 	var (
-		// TODO: need to put project name here as well to have it unique
-		// flash-easy-01
+		// freggy-flash-easy-01
 		name = fmt.Sprintf("%s-%s-%d", deploy.Mode.String, deploy.Variant.String, replica)
 		// we need this one in order to know if we need to deploy
 		// a node port service first + create instead of update an
@@ -135,17 +140,30 @@ func reconcileVariantReplicas(
 	}
 	if !deployed {
 		log.Printf("initial deploy name=%s", name)
-		svc := nodePortSvc(name, ns)
-		if _, err := kube.CoreV1().
-			Services(ns).
-			Create(ctx, svc, metav1.CreateOptions{}); ignoreAlreadyExists(err) != nil {
-			return fmt.Errorf("create svc: %w", err)
-		}
 		handle = deployment(name, imgRef, ns)
 		if _, err := kube.AppsV1().
 			Deployments(ns).
 			Create(ctx, handle, metav1.CreateOptions{}); ignoreAlreadyExists(err) != nil {
 			return fmt.Errorf("create deploy: %w", err)
+		}
+		svc := nodePortSvc(name, ns)
+		svc, err = kube.CoreV1().
+			Services(ns).
+			Create(ctx, svc, metav1.CreateOptions{})
+		if ignoreAlreadyExists(err) != nil {
+			return fmt.Errorf("create svc: %w", err)
+		}
+		// 1-freggy-flash-easy.chunks.76k.io
+		domain := fmt.Sprintf("%d-%s-%s.chunks.76k.io", replica, deploy.Mode.String, deploy.Variant.String)
+		if err := configureDNS(
+			svc.Spec.Ports[0].NodePort,
+			svc.Spec.ExternalIPs[0], // TODO: cluster LB IP
+			domain,
+			"76k.io",
+			"43994d4a79a7e5c28dc5476589eb9da0f7ad9",
+			"riegeryannic@gmail.com",
+		); err != nil {
+			return fmt.Errorf("dns: %w", err)
 		}
 		log.Printf("deploy complete name=%s", name)
 		return nil
@@ -155,14 +173,14 @@ func reconcileVariantReplicas(
 		log.Printf("image already deployed name=%s", name)
 		return nil
 	}
-
 	handle.Spec.Template.Spec.Containers[0].Image = imgRef
+	// rollout restart deployment
+	handle.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	if _, err := kube.AppsV1().
 		Deployments(ns).
 		Update(ctx, handle, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("update deploy: %w", err)
 	}
-	// TODO: rollout restart
 	return nil
 }
 
@@ -177,10 +195,11 @@ func variant(s []Variant, id string) (Variant, bool) {
 
 func nodePortSvc(name string, ns string) *corev1.Service {
 	return &corev1.Service{
+		// cannot use external dns to create SRV record
+		// see https://github.com/kubernetes-sigs/external-dns/pull/1890
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   ns,
-			Annotations: map[string]string{}, // TODO: external dns
+			Name:      name,
+			Namespace: ns,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -229,6 +248,44 @@ func deployment(name, imgRef, ns string) *appsv1.Deployment {
 			},
 		},
 	}
+}
+
+func configureDNS(port int32, ip, domain, zoneName, key, mail string) error {
+	ctx := context.Background()
+	api, err := cloudflare.New(key, mail)
+	if err != nil {
+		return fmt.Errorf("cf client: %w", err)
+	}
+	zoneID, err := api.ZoneIDByName(zoneName)
+	if err != nil {
+		return fmt.Errorf("get zone: %w", err)
+	}
+	if _, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
+		Type:      "A",
+		Name:      domain,
+		Content:   ip,
+		TTL:       1, // automatic
+		Proxiable: false,
+	}); err != nil {
+		return fmt.Errorf("a record: %w", err)
+	}
+	if _, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
+		Type: "SRV",
+		Data: map[string]any{
+			"name":     domain,
+			"port":     port,
+			"priority": 1,
+			"proto":    "_tcp",
+			"service":  "_minecraft",
+			"weight":   0,
+			"target":   domain,
+		},
+		TTL:       1, // automatic
+		Proxiable: false,
+	}); err != nil {
+		return fmt.Errorf("srv record: %w", err)
+	}
+	return nil
 }
 
 func ignoreAlreadyExists(err error) error {
