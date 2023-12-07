@@ -27,6 +27,7 @@ CREATE TABLE public.schema_migrations (
 --
 
 CREATE TABLE public.variant_deployments (
+    project character varying(100),
     mode character varying(100),
     variant character varying(100),
     cluster_url character varying(100),

@@ -14,9 +14,12 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 	"log"
+	"sync"
 )
 
-func DeployAll(ctx context.Context, regHost string, conf Config, conn *pgx.Conn) error {
+const ns = "chunks-system"
+
+func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn *pgx.Conn) error {
 	// TODO:
 	// collect how many servers running this mode are live
 	// * do this by quering all configured kubernetes endpoints
@@ -25,37 +28,74 @@ func DeployAll(ctx context.Context, regHost string, conf Config, conn *pgx.Conn)
 	// error and do nothing
 	// * hardcode limit of 10 for POC, dont want to handle
 	//   user data atm
+	// project name is globally unique
+	var deploys []db.VariantDeployment
+	// TODO: run multiple versions at the same time?
 	dao := db.New(conn)
 	deploys, err := dao.ListVariantDeploys(ctx, pgtype.Text{
-		String: conf.Name,
+		String: meta.ChunkID,
 	})
 	if err != nil {
 		return fmt.Errorf("list variant deploys %w", err)
+	}
+	// we have currently no deployments running
+	// can happen if we deploy the chunk for the
+	// first time
+	if len(deploys) == 0 {
+		log.Printf("no variant deployment found\n")
+		for _, v := range conf.Variants {
+			// TODO: need variant deployment as domain object
+			deploys = append(deploys, db.VariantDeployment{
+				Mode: pgtype.Text{
+					String: meta.ChunkID,
+				},
+				Variant: pgtype.Text{
+					String: v.ID,
+				},
+				ClusterUrl: pgtype.Text{
+					String: "https://4513aec9-3a16-4b74-af2d-c99c3454af91.vultr-k8s.com:6443",
+				},
+				ClusterToken: pgtype.Text{
+					String: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjBOLTdtczRRUmpTNURwTWhpdUdUcjA2QTdkZGhZb3RMMFByZEdvTUFQclUifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJjaHVua3Mtc3lzdGVtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNodW5rZXItY2x1c3Rlci10b2tlbiIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjaHVua2VyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiODgyMmQ2MWEtMWIyZi00NWQwLTgyMzAtN2Q1ZGFmNzgzMDJiIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmNodW5rcy1zeXN0ZW06Y2h1bmtlciJ9.NM7XlG77ctLGUjYsH5G_gZ8z4Sp9o4_s_Zg56XIoGrQ0JKeK3ZQRkN1Vd9iG45IjZHhy6VhTfypJBE_geAGg4RqD7pjFN8zV7YiFSsO8B88gfQKdlQ_ntZ_pilayj6vYaIeQ8TtCj27edrVaMdGqQrVpcQTeVeU5IEG7aNtWc0F-dC8iU8NbbGqu-RRLeDexlxw_x4kP2V7ccRukEF98cEYp6u2SfXJLlZdsVt-MmCDiXHCNvMv1a9SJiGbemyDNc0hZIY9fwMPEvs23GBpiToWyD5T55UxgCQZjs-tFg1tiDa35Uf-tcz0mUAoYG6TyE0QRpaDRoIPq5NrwY3MeRA",
+				},
+			})
+		}
 	}
 	// reconcile variant deployment
 	for _, deploy := range deploys {
 		log.Printf(
 			"fetch current deployment state mode=%s variant=%s",
-			deploy.Mode,
-			deploy.Variant,
+			deploy.Mode.String,
+			deploy.Variant.String,
 		)
 		v, ok := variant(conf.Variants, deploy.Variant.String)
 		if !ok {
-			return fmt.Errorf("variant %s not found", deploy.Variant)
+			return fmt.Errorf("variant %s not found", deploy.Variant.String)
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(v.Replicas)
 		for i := 0; i < v.Replicas; i++ {
 			i := i
 			go func() {
-				if err := reconcileVariantReplicas(ctx, deploy, v, regHost, i); err != nil {
+				defer wg.Done()
+				// TODO: better reconcile:
+				// * redeploy deleted resources
+				imgRef := fmt.Sprintf("%s:%s-%s", imgRepo, meta.ChunkVersion, v.ID)
+				err = reconcileVariantReplicas(ctx, deploy, imgRef, i)
+				if err != nil {
 					log.Printf(
 						"reconcile mode=%s variant=%s replica=%d err=%v",
-						deploy.Mode,
-						deploy.Variant,
+						deploy.Mode.String,
+						deploy.Variant.String,
 						i,
 						err,
 					)
 				}
 			}()
+		}
+		wg.Wait()
+		if err != nil {
+			return fmt.Errorf("reconcile: %w", err)
 		}
 	}
 	return nil
@@ -64,63 +104,71 @@ func DeployAll(ctx context.Context, regHost string, conf Config, conn *pgx.Conn)
 func reconcileVariantReplicas(
 	ctx context.Context,
 	deploy db.VariantDeployment,
-	v Variant,
-	regHost string,
+	imgRef string,
 	replica int,
 ) error {
-	rConf := &rest.Config{
+	kube, err := kubernetes.NewForConfig(&rest.Config{
 		Host:        deploy.ClusterUrl.String,
 		BearerToken: deploy.ClusterToken.String,
-	}
-	rc, err := rest.RESTClientFor(rConf)
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: true,
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("rest client: %w", err)
+		return fmt.Errorf("clientset: %w", err)
 	}
-	kube := kubernetes.New(rc)
 	var (
 		// TODO: need to put project name here as well to have it unique
 		// flash-easy-01
-		name = fmt.Sprintf("%s-%s-%d", deploy.Mode, deploy.Variant, replica)
+		name = fmt.Sprintf("%s-%s-%d", deploy.Mode.String, deploy.Variant.String, replica)
 		// we need this one in order to know if we need to deploy
 		// a node port service first + create instead of update an
 		// existing deployment
 		deployed = true
 	)
-	handle, err := kube.AppsV1().Deployments("chunks").Get(ctx, name, metav1.GetOptions{})
+	handle, err := kube.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		deployed = false
 	}
-	if err != nil {
+	if err != nil && deployed {
 		return fmt.Errorf("get deploy: %w", err)
 	}
-	imgRef := fmt.Sprintf("%s/%s-%s", regHost, deploy.Mode.String, v.Name)
 	if !deployed {
-		svc := nodePortSvc(name, "chunks")
+		log.Printf("initial deploy name=%s", name)
+		svc := nodePortSvc(name, ns)
 		if _, err := kube.CoreV1().
-			Services("chunks").
-			Create(ctx, svc, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("create service: %w", err)
+			Services(ns).
+			Create(ctx, svc, metav1.CreateOptions{}); ignoreAlreadyExists(err) != nil {
+			return fmt.Errorf("create svc: %w", err)
 		}
-		handle = deployment(name, imgRef, "chunks")
+		handle = deployment(name, imgRef, ns)
 		if _, err := kube.AppsV1().
-			Deployments("chunks").
-			Create(ctx, handle, metav1.CreateOptions{}); err != nil {
+			Deployments(ns).
+			Create(ctx, handle, metav1.CreateOptions{}); ignoreAlreadyExists(err) != nil {
 			return fmt.Errorf("create deploy: %w", err)
 		}
+		log.Printf("deploy complete name=%s", name)
 		return nil
 	}
+	current := handle.Spec.Template.Spec.Containers[0].Image
+	if current == imgRef {
+		log.Printf("image already deployed name=%s", name)
+		return nil
+	}
+
 	handle.Spec.Template.Spec.Containers[0].Image = imgRef
 	if _, err := kube.AppsV1().
-		Deployments("chunks").
+		Deployments(ns).
 		Update(ctx, handle, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("update deploy: %w", err)
 	}
+	// TODO: rollout restart
 	return nil
 }
 
-func variant(s []Variant, name string) (Variant, bool) {
+func variant(s []Variant, id string) (Variant, bool) {
 	for _, v := range s {
-		if v.Name == name {
+		if v.ID == id {
 			return v, true
 		}
 	}
@@ -164,6 +212,8 @@ func deployment(name, imgRef, ns string) *appsv1.Deployment {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: ns,
 					Labels: map[string]string{
 						"name": name,
 					},
@@ -171,6 +221,7 @@ func deployment(name, imgRef, ns string) *appsv1.Deployment {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
+							Name:  "app",
 							Image: imgRef,
 						},
 					},
@@ -178,4 +229,11 @@ func deployment(name, imgRef, ns string) *appsv1.Deployment {
 			},
 		},
 	}
+}
+
+func ignoreAlreadyExists(err error) error {
+	if errors.IsAlreadyExists(err) {
+		return nil
+	}
+	return err
 }

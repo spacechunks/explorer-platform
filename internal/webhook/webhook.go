@@ -38,16 +38,19 @@ type Payload struct {
 	Operator  string `json:"operator"`
 	EventData struct {
 		Resources []Resource `json:"resources"`
+		Repo      Repo       `json:"repository"`
 	} `json:"event_data"`
-	Repository struct {
-		RepoFullName string `json:"repo_full_name"`
-	} `json:"repository"`
 }
 
 type Resource struct {
 	Digest      string `json:"digest"`
 	Tag         string `json:"tag"`
 	ResourceURL string `json:"resource_url"`
+}
+
+type Repo struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 type Handler func(p Payload)
@@ -72,6 +75,6 @@ func handle(h Handler) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 		//fmt.Println(string(b))
-		h(p)
+		go h(p)
 	}
 }
