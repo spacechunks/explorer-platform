@@ -32,14 +32,17 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn
 	// * hardcode limit of 10 for POC, dont want to handle
 	//   user data atm
 	// project name is globally unique
+
 	var deploys []db.VariantDeployment
-	dao := db.New(conn)
-	deploys, err := dao.ListVariantDeploys(ctx, pgtype.Text{
-		String: meta.ChunkID,
-	})
-	if err != nil {
-		return fmt.Errorf("list variant deploys %w", err)
-	}
+	var err error = nil
+	/*
+		dao := db.New(conn)
+		deploys, err := dao.ListVariantDeploys(ctx, pgtype.Text{
+			String: meta.ChunkID,
+		})
+		if err != nil {
+			return fmt.Errorf("list variant deploys %w", err)
+		}*/
 
 	// we have currently no deployments running
 	// can happen if we deploy the chunk for the
@@ -107,6 +110,7 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn
 	return nil
 }
 
+// TODO: rework reconcile
 func reconcileVariantReplica(
 	ctx context.Context,
 	deploy db.VariantDeployment,
@@ -157,7 +161,7 @@ func reconcileVariantReplica(
 		domain := fmt.Sprintf("%d-%s-%s.chunks.76k.io", replica, deploy.Mode.String, deploy.Variant.String)
 		if err := configureDNS(
 			svc.Spec.Ports[0].NodePort,
-			svc.Spec.ExternalIPs[0], // TODO: cluster LB IP
+			"157.90.167.132", // TODO: cluster LB IP
 			domain,
 			"76k.io",
 			"43994d4a79a7e5c28dc5476589eb9da0f7ad9",
@@ -168,12 +172,15 @@ func reconcileVariantReplica(
 		log.Printf("deploy complete name=%s", name)
 		return nil
 	}
-	current := handle.Spec.Template.Spec.Containers[0].Image
-	if current == imgRef {
-		log.Printf("image already deployed name=%s", name)
-		return nil
-	}
+
+	log.Printf("updating exsiting variant deployment name=%s img=%s", name, imgRef)
 	handle.Spec.Template.Spec.Containers[0].Image = imgRef
+
+	// note that  we do not need to update dns, because
+	// we will point to a static IP so nothing regarding
+	// DNS needs to be changed. records must be deleted
+	// when the variant deployment is deleted.
+
 	// rollout restart deployment
 	handle.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	if _, err := kube.AppsV1().
@@ -238,6 +245,11 @@ func deployment(name, imgRef, ns string) *appsv1.Deployment {
 					},
 				},
 				Spec: corev1.PodSpec{
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{
+							Name: "ghcr-regcred",
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:  "app",

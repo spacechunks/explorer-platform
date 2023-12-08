@@ -25,7 +25,9 @@ func ProcessImage(src OCIArtifact, dst OCIArtifact, configPath string) (Config, 
 	// using the pushed one as its base
 	for _, v := range conf.Variants { // TODO: use go routines (240KMH!!!!)
 		log.Printf("variant=%s", v.ID)
+		log.Printf("extract img=%s\n", src.Ref())
 		files, err := image.ExtractDir(img, v.Path)
+		log.Printf("extracted img=%s\n", src.Ref())
 		if err != nil {
 			return Config{}, fmt.Errorf("extract dir: %w", err)
 		}
@@ -35,7 +37,9 @@ func ProcessImage(src OCIArtifact, dst OCIArtifact, configPath string) (Config, 
 			// in the server root directory when appending the layer.
 			f.AbsPath = fmt.Sprintf("%s%s", conf.ServerRoot, f.RelPath)
 		}
+		log.Printf("append img=%s\n", src.Ref())
 		varImg, err := image.AppendLayerFromFiles(img, files)
+		log.Printf("appended img=%s\n", src.Ref())
 		if err != nil {
 			return Config{}, fmt.Errorf("append layer: %w", err)
 		}

@@ -10,9 +10,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"io"
-	"log"
 	"slices"
 	"strings"
+	"sync"
 )
 
 // TODO: tests
@@ -86,49 +86,66 @@ func ExtractDir(img ociv1.Image, path string) ([]File, error) {
 
 	// same reason as in ExtractFile
 	slices.Reverse(layers)
+
+	mu := &sync.Mutex{}
 	files := make([]File, 0)
 
+	var loopErr error = nil
 	for _, l := range layers {
-		data, err := l.Uncompressed() // TODO: do in goroutine
-		if err != nil {
-			return nil, fmt.Errorf("layer uncompressed: %w", err)
-		}
-		defer data.Close()
-		tr := tar.NewReader(data)
-		for {
-			hdr, err := tr.Next()
-			if err == io.EOF {
-				break
+		l := l
+		go func() {
+			data, loopErr := l.Uncompressed() // TODO: do in goroutine
+			if loopErr != nil {
+				loopErr = fmt.Errorf("layer uncompressed: %w", err)
+				return
 			}
-			if err != nil {
-				return nil, fmt.Errorf("tar next: %w", err)
-			}
-			// tar deals with relative paths, so make em absolute
-			abs := fmt.Sprintf("/%s", hdr.Name)
-			// make sure we are within a certain path
-			if !strings.HasPrefix(abs, path) {
-				continue
-			}
-			log.Println(strings.TrimPrefix(abs, path))
-			if hdr.Typeflag == tar.TypeDir {
+			defer data.Close()
+			tr := tar.NewReader(data)
+			for {
+				hdr, loopErr := tr.Next()
+				if loopErr == io.EOF {
+					break
+				}
+				if loopErr != nil {
+					loopErr = fmt.Errorf("tar next: %w", err)
+					return
+				}
+				// tar deals with relative paths, so make em absolute
+				abs := fmt.Sprintf("/%s", hdr.Name)
+				// make sure we are within a certain path
+				if !strings.HasPrefix(abs, path) {
+					continue
+				}
+				if hdr.Typeflag == tar.TypeDir {
+					mu.Lock()
+					files = append(files, File{
+						AbsPath: abs,
+						RelPath: strings.TrimPrefix(abs, path),
+						Dir:     true,
+					})
+					mu.Unlock()
+					continue
+				}
+				var content = &bytes.Buffer{}
+				if _, err := io.Copy(content, tr); err != nil {
+					loopErr = fmt.Errorf("copy config bytes: %w", err)
+					return
+				}
+
+				mu.Lock()
 				files = append(files, File{
 					AbsPath: abs,
 					RelPath: strings.TrimPrefix(abs, path),
-					Dir:     true,
+					Content: content.Bytes(),
+					Size:    hdr.Size,
 				})
-				continue
+				mu.Unlock()
 			}
-			var content = &bytes.Buffer{}
-			if _, err := io.Copy(content, tr); err != nil {
-				return nil, fmt.Errorf("copy config bytes: %w", err)
-			}
-			files = append(files, File{
-				AbsPath: abs,
-				RelPath: strings.TrimPrefix(abs, path),
-				Content: content.Bytes(),
-				Size:    hdr.Size,
-			})
-		}
+		}()
+	}
+
+	if loopErr != nil {
+		return nil, loopErr
 	}
 
 	return files, nil
@@ -147,7 +164,7 @@ func AppendLayerFromFiles(img ociv1.Image, files []File) (ociv1.Image, error) {
 		if f.Dir {
 			hdr.Typeflag = tar.TypeDir
 		}
-		log.Printf("name=%s size=%d t=%s", hdr.Name, hdr.Size, string(hdr.Typeflag))
+		//log.Printf("name=%s size=%d t=%s", hdr.Name, hdr.Size, string(hdr.Typeflag))
 
 		if err := tarw.WriteHeader(hdr); err != nil {
 			return nil, fmt.Errorf("write hdr: %w", err)

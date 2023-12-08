@@ -14,18 +14,23 @@ import (
 )
 
 const (
-	configPath  = "/app/.chunks.yaml"
+	configPath  = "/opt/paper/.chunks.yaml"
 	variantRepo = "ghcr.io/freggy"
 )
 
+// TODO:
+// NEXT STEPS
+// * test create
+// 	* inspect dns entry
+// * test image tag update
+
 func main() {
-	/*
-		d, err := os.ReadFile("hack/TODO")
-		if err != nil {
-			log.Fatalf("NO FILE FOUND")
-		}
-		log.Println(string(d))
-		time.Sleep(5000 * time.Second)*/
+	/*d, err := os.ReadFile("hack/TODO")
+	if err != nil {
+		log.Fatalf("NO FILE FOUND")
+	}
+	log.Println(string(d))
+	time.Sleep(5000 * time.Second)*/
 	var (
 		ctx = context.Background()
 	)
@@ -45,13 +50,17 @@ func main() {
 					continue
 				}
 				src := chunk.OCIArtifact{
-					User: "test",
-					Pass: "Test1234",
-					// reg1.chunks.76k.io/<>/<>
+					/*User: "test",
+					Pass: "Test1234",*/
+					User: "freggy",
+					Pass: "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",
+					// reg1.chunks.76k.io/ <my/repo> /myimage:version
 					Repo: ref.Context().RepositoryStr(),
-					URL:  ref.Context().RegistryStr(),
-					Tag:  ref.Identifier(),
+					// <reg1.chunks.76k.io> /my/repo/myimage:version
+					URL: ref.Context().RegistryStr(),
+					Tag: ref.Identifier(),
 				}
+
 				internalRepo := chunk.OCIArtifact{
 					User: "freggy",
 					Pass: "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",

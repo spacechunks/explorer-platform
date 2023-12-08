@@ -6,4 +6,3 @@ resources:
 - flux.components.yaml
 - chunks.ocirepository.yaml
 - all.k.yaml
-- ghcr-io.secret.yaml

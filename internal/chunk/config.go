@@ -1,6 +1,8 @@
 package chunk
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type DBConfig struct {
 	User string
