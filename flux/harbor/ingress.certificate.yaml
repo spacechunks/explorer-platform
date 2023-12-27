@@ -22,6 +22,6 @@ spec:
   dnsNames:
     - reg1.chunks.76k.io
   issuerRef:
-    name: letsencrypt-acme-issuer
+    name: letsencrypt-acme-issuer-prod
     kind: ClusterIssuer
     group: cert-manager.io

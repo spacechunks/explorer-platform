@@ -5,3 +5,4 @@ namespace: cert-manager
 resources:
 - letsencrypt-acme.issuer.yaml
 - selfsigned.issuer.yaml
+- letsencrypt-acme-prod.issuer.yaml

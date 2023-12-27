@@ -8,3 +8,4 @@ resources:
 - ingress.certificate.yaml
 - harbor-token.certificate.yaml
 - ns.yaml
+- harbor.ingress.yaml

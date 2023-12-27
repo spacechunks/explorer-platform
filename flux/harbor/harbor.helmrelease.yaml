@@ -16,18 +16,7 @@ spec:
       interval: 1m
   values:
     expose:
-      type: ingress
-      tls:
-        enabled: true
-        certSource: secret
-        secretName: harbor-ingress-cert
-      ingress:
-        hosts:
-          core: reg1.chunks.76k.io
-        className: haproxy
-        annotations:
-          ingress.kubernetes.io/ssl-redirect: "true"
-          ingress.kubernetes.io/proxy-body-size: "0"
+      type: clusterIP
     externalURL: https://reg1.chunks.76k.io
     ipFamily:
       ipv4:
