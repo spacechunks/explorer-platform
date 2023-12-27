@@ -6,3 +6,4 @@ resources:
 - ingress
 - harbor
 - cert-manager
+- chunks-system

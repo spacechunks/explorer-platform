@@ -69,10 +69,10 @@ spec:
           # keys in the secret should be REGISTRY_STORAGE_S3_ACCESSKEY and REGISTRY_STORAGE_S3_SECRETKEY for registry
           #existingSecret: "r0t_dy3aTgrjrfjSb2QWE_mvFM9nTmmQp4ZH_OHP"
           region: auto
-          bucket: chunks-76k
-          accesskey: 2835c97483a4190bc387497b34b45721
-          secretkey: e2b9a37b3e9481756871510a5ca73357b136b1920f34ba3eb8d8ccb10eab78d7
-          regionendpoint: https://57031cd6e0fe998dd78065736db477dc.r2.cloudflarestorage.com
+          bucket: chunks-test
+          accesskey: 3LFX2MC62INAIV9GCVT8
+          secretkey: sn8xpSyWHBJP51IHG7kR5NjECOSdxnMpjWvHBehX
+          regionendpoint: ams1.vultrobjects.com
           chunksize: "5242880"
     # debug, info, warning, error or fatal
     logLevel: debug

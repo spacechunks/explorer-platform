@@ -5,7 +5,7 @@ metadata:
   name: chunks
 spec:
   interval: 5m
-  url: image://ghcr.io/freggy/chunks76k
+  url: oci://ghcr.io/freggy/chunks76k
   ref:
     tag: latest
   secretRef:

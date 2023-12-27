@@ -2,6 +2,8 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: chunks-system
 resources:
+  - chunker.deployment.yaml
+  - chunker.service.yaml
   - chunker.role.yaml
   - chunker.rolebinding.yaml
   - chunker.serviceaccount.yaml

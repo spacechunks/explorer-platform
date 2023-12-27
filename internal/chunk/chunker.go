@@ -7,7 +7,7 @@ import (
 	"log"
 )
 
-func ProcessImage(src OCIArtifact, dst OCIArtifact, configPath string) (Config, error) {
+func ProcessImage(src OCISource, dst OCISource, configPath string) (Config, error) {
 	log.Printf("pulling img=%s\n", src.Ref())
 	img, err := image.Pull(src.Ref(), src.User, src.Pass)
 	if err != nil {

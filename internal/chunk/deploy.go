@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/chunks76k/internal/db"
 	"github.com/cloudflare/cloudflare-go"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +20,7 @@ import (
 
 const ns = "chunks-system"
 
-func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn *pgx.Conn) error {
+func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config /*conn *pgx.Conn*/) error {
 	// TODO: run multiple versions at the same time?
 	// TODO:
 	// collect how many servers running this mode are live
@@ -72,7 +71,7 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn
 	// reconcile variant deployment
 	for _, deploy := range deploys {
 		log.Printf(
-			"fetch current deployment state mode=%s variant=%s",
+			"fetching current deployment state mode=%s variant=%s",
 			deploy.Mode.String,
 			deploy.Variant.String,
 		)
@@ -105,7 +104,6 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config, conn
 		if err != nil {
 			return fmt.Errorf("reconcile: %w", err)
 		}
-
 	}
 	return nil
 }
@@ -177,7 +175,7 @@ func reconcileVariantReplica(
 	handle.Spec.Template.Spec.Containers[0].Image = imgRef
 
 	// note that  we do not need to update dns, because
-	// we will point to a static IP so nothing regarding
+	// we will point to a static IP, so nothing regarding
 	// DNS needs to be changed. records must be deleted
 	// when the variant deployment is deleted.
 

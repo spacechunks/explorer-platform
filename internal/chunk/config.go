@@ -18,19 +18,20 @@ type Config struct {
 	Variants   []Variant `yaml:"variants"`
 }
 
-type OCIArtifact struct { // TODO: better name
+type OCISource struct { // TODO: better name
 	User string
 	Pass string
 	URL  string
+
 	Tag  string
 	Repo string
 }
 
-func (o OCIArtifact) Ref() string {
+func (o OCISource) Ref() string {
 	return fmt.Sprintf("%s/%s:%s", o.URL, o.Repo, o.Tag)
 }
 
-func (o OCIArtifact) RepoURL() string {
+func (o OCISource) RepoURL() string {
 	return fmt.Sprintf("%s/%s", o.URL, o.Repo)
 }
 

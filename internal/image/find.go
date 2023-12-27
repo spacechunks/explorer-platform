@@ -33,10 +33,10 @@ func ExtractFile(img ociv1.Image, path string) (File, error) {
 		return File{}, fmt.Errorf("image layers: %w", err)
 	}
 
-	// we will find our config file most likely
-	// in the latest layers that have been added.
-	// new layers are appended to the end of the slice,
-	// so we have to reverse it.
+	// we will find our file most likely in
+	// the latest layers that have been added.
+	// new layers are appended to the end of the
+	// slice, so we have to reverse it.
 	slices.Reverse(layers)
 
 	for _, l := range layers {
@@ -94,7 +94,7 @@ func ExtractDir(img ociv1.Image, path string) ([]File, error) {
 	for _, l := range layers {
 		l := l
 		go func() {
-			data, loopErr := l.Uncompressed() // TODO: do in goroutine
+			data, loopErr := l.Uncompressed()
 			if loopErr != nil {
 				loopErr = fmt.Errorf("layer uncompressed: %w", err)
 				return
