@@ -9,3 +9,4 @@ resources:
   - chunker.serviceaccount.yaml
   - chunker-cluster-token.secret.yaml
   - ns.yaml
+  - reg1-auth.secret.yaml

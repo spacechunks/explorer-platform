@@ -245,7 +245,7 @@ func deployment(name, imgRef, ns string) *appsv1.Deployment {
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: []corev1.LocalObjectReference{
 						{
-							Name: "ghcr-regcred",
+							Name: "reg1-auth",
 						},
 					},
 					Containers: []corev1.Container{
