@@ -13,7 +13,7 @@ func ProcessImage(src OCISource, dst OCISource, configPath string) (Config, erro
 	if err != nil {
 		return Config{}, fmt.Errorf("pull image: %w", err)
 	}
-	f, err := image.ExtractFile(img, configPath)
+	f, err := image.UnpackFile(img, configPath)
 	if err != nil {
 		return Config{}, fmt.Errorf("find config: %w", err)
 	}
@@ -26,13 +26,13 @@ func ProcessImage(src OCISource, dst OCISource, configPath string) (Config, erro
 	for _, v := range conf.Variants { // TODO: use go routines (240KMH!!!!)
 		log.Printf("variant=%s", v.ID)
 		log.Printf("extract img=%s\n", src.Ref())
-		files, err := image.ExtractDir(img, v.Path)
+		files, err := image.UnpackDir(img, v.Path)
 		log.Printf("extracted img=%s\n", src.Ref())
 		if err != nil {
 			return Config{}, fmt.Errorf("extract dir: %w", err)
 		}
-		for i := range files {
-			f := &files[i]
+		for path := range files {
+
 			// adjust absolute path so variant files end up
 			// in the server root directory when appending the layer.
 			f.AbsPath = fmt.Sprintf("%s%s", conf.ServerRoot, f.RelPath)
