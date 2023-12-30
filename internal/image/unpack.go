@@ -81,50 +81,56 @@ func UnpackFile(img ociv1.Image, path string) (File, error) {
 	return File{}, errors.New("file not found")
 }
 
-// UnpackDir applies each layers change set for a given directory.
-// Returns all files living under the specified path.
-func UnpackDir(img ociv1.Image, path string) (map[string]File, error) {
-	layers, err := img.Layers()
-	if err != nil {
-		return nil, fmt.Errorf("image layers: %w", err)
-	}
-	var (
-		g            = &errgroup.Group{}
-		uncompressed = make([]io.ReadCloser, len(layers))
-	)
-
-	t1 := time.Now()
-
-	for i, l := range layers {
-		i, l := i, l
+// cmap maps each element concurrently using an errgroup.Group.
+// returns a slice with containing the mapped elements.
+func cmap[T any, L any](in []L, fn func(layer L) (T, error)) ([]T, error) {
+	g := &errgroup.Group{}
+	s := make([]T, len(in))
+	for i, val := range in {
+		i, val := i, val
 		g.Go(func() error {
-			data, err := l.Uncompressed()
+			ret, err := fn(val)
 			if err != nil {
 				return err
 			}
-			uncompressed[i] = data
+			s[i] = ret
 			return nil
 		})
 	}
 	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("uncompress in: %v", err)
+	}
+	return s, nil
+}
+
+// UnpackDir applies each layers change set for a given directory.
+// Returns all files living under the specified path.
+func UnpackDir(img ociv1.Image, path string) ([]File, error) {
+	layers, err := img.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("image layers: %w", err)
+	}
+	uncompressed, err := cmap(layers, func(l ociv1.Layer) (io.ReadCloser, error) {
+		data, err := l.Uncompressed()
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	})
+	if err != nil {
 		return nil, fmt.Errorf("uncompress layers: %v", err)
 	}
 
-	t2 := time.Now()
-
-	log.Printf("uncompress: %v\n", t2.Sub(t1))
-
-	t3 := time.Now()
-
-	// fmap stores the file hierarchy
-	// mapping path to file object
-	fmap := make(map[string]File)
 	// iterate over each uncompressed layer
-	// oldest to latest while applying the
-	// layers change set
-	for _, data := range uncompressed {
+	// oldest to latest reading the change sets
+	changeSets, err := cmap(uncompressed, func(data io.ReadCloser) (map[string]File, error) {
+		// fmap stores the file hierarchy
+		// mapping path to file object
+		fmap := make(map[string]File)
 		tr := tar.NewReader(data)
 		defer data.Close()
+
+		t1 := time.Now()
 		for {
 			hdr, err := tr.Next()
 			if err == io.EOF {
@@ -136,9 +142,38 @@ func UnpackDir(img ociv1.Image, path string) (map[string]File, error) {
 			if !strings.HasPrefix(abs, path) {
 				continue
 			}
+			if hdr.Typeflag == tar.TypeDir {
+				fmap[abs] = File{
+					AbsPath: abs,
+					RelPath: strings.TrimPrefix(abs, path),
+					Dir:     true,
+				}
+				continue
+			}
 
-			// TODO: cut away root dir, because we want
+			var content = &bytes.Buffer{}
+			if _, err := io.Copy(content, tr); err != nil {
+				return nil, fmt.Errorf("copy config bytes: %w", err)
+			}
+			fmap[abs] = File{
+				AbsPath: abs,
+				RelPath: strings.TrimPrefix(abs, path),
+				Content: content.Bytes(),
+				Size:    hdr.Size,
+			}
+		}
 
+		t2 := time.Now()
+		log.Printf("layer: %v", t2.Sub(t1))
+		return fmap, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("change sets: %v", err)
+	}
+
+	final := make(map[string]File)
+	for _, cs := range changeSets {
+		for abs, file := range cs {
 			// files which should be removed are prefixed with .wh
 			// see: https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/layer.md#L246
 			//
@@ -151,11 +186,11 @@ func UnpackDir(img ociv1.Image, path string) (map[string]File, error) {
 					dir = filepath.Dir(abs)
 					// remove all files under p
 					rmAll = func(m map[string]File, p string) {
-						for k := range fmap {
+						for k := range final {
 							if !strings.HasPrefix(k, p) {
 								continue
 							}
-							delete(fmap, k)
+							delete(final, k)
 						}
 					}
 				)
@@ -164,43 +199,86 @@ func UnpackDir(img ociv1.Image, path string) (map[string]File, error) {
 				// example: /dir1/dir2/.wh..wh..opq
 				// see https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/layer.md#L284
 				if filename == ".wh..opq" {
-					rmAll(fmap, dir)
+					rmAll(final, dir)
 					continue
 				}
 				// path := <path-to-dir>/myscript.sh
 				path := fmt.Sprintf("%s/%s", filepath.Dir(abs), f)
 				// .wh prefixed directories should also be removed completely
-				if hdr.Typeflag == tar.TypeDir {
-					rmAll(fmap, path)
+				if file.Dir {
+					rmAll(final, path)
 					continue
 				}
-				delete(fmap, path)
+				delete(final, path)
 				continue
 			}
-			if hdr.Typeflag == tar.TypeDir {
-				fmap[abs] = File{
-					AbsPath: abs,
-					RelPath: hdr.Name,
-					Dir:     true,
-				}
-				continue
-			}
-			var content = &bytes.Buffer{}
-			if _, err := io.Copy(content, tr); err != nil {
-				return nil, fmt.Errorf("copy config bytes: %w", err)
-			}
-			fmap[abs] = File{
-				AbsPath: abs,
-				RelPath: hdr.Name,
-				Content: content.Bytes(),
-				Size:    hdr.Size,
-			}
+			final[abs] = file
 		}
 	}
 
-	t4 := time.Now()
-	log.Printf("unpack: %v\n", t4.Sub(t3))
-	return fmap, nil
+	return values(final), nil
+
+	/*
+		// TODO: cut away root dir, because we want
+
+					// files which should be removed are prefixed with .wh
+					// see: https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/layer.md#L246
+					//
+					// filename := .wh.myscript.sh
+					filename := filepath.Base(abs)
+					if strings.HasPrefix(filename, ".wh") {
+						var (
+							// filename := myscript.sh
+							f   = filename[4:]
+							dir = filepath.Dir(abs)
+							// remove all files under p
+							rmAll = func(m map[string]File, p string) {
+								for k := range fmap {
+									if !strings.HasPrefix(k, p) {
+										continue
+									}
+									delete(fmap, k)
+								}
+							}
+						)
+						// this indicates that the all files
+						// contained within the directory should be deleted.
+						// example: /dir1/dir2/.wh..wh..opq
+						// see https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/layer.md#L284
+						if filename == ".wh..opq" {
+							rmAll(fmap, dir)
+							continue
+						}
+						// path := <path-to-dir>/myscript.sh
+						path := fmt.Sprintf("%s/%s", filepath.Dir(abs), f)
+						// .wh prefixed directories should also be removed completely
+						if hdr.Typeflag == tar.TypeDir {
+							rmAll(fmap, path)
+							continue
+						}
+						delete(fmap, path)
+						continue
+					}
+					if hdr.Typeflag == tar.TypeDir {
+						fmap[abs] = File{
+							AbsPath: abs,
+							RelPath: strings.TrimPrefix(abs, path),
+							Dir:     true,
+						}
+						continue
+					}
+					var content = &bytes.Buffer{}
+					if _, err := io.Copy(content, tr); err != nil {
+						return nil, fmt.Errorf("copy config bytes: %w", err)
+					}
+					fmap[abs] = File{
+						AbsPath: abs,
+						RelPath: strings.TrimPrefix(abs, path),
+						Content: content.Bytes(),
+						Size:    hdr.Size,
+					}
+				}
+	*/
 }
 
 // AppendLayerFromFiles returns a new image object containing the appended layer
@@ -231,6 +309,10 @@ func AppendLayerFromFiles(img ociv1.Image, files []File) (ociv1.Image, error) {
 	return ret, nil
 }
 
-func applyChangeSet() {
-
+func values(m map[string]File) []File {
+	s := make([]File, 0, len(m))
+	for _, f := range m {
+		s = append(s, f)
+	}
+	return s
 }

@@ -22,11 +22,11 @@ spec:
             - name: CHUNKER_SRC_OCI_REG_USER
               value: robot$chunks-system
             - name: CHUNKER_SRC_OCI_REG_PASS
-              value: 7tSgSgXIxVnqKlS5LmpI8dvexz2fQXto
+              value: QenxGhigrVcomFWh5qaG2H3DvBWwZV7q
             - name: CHUNKER_DST_OCI_REG_USER
               value: robot$chunks-system
             - name: CHUNKER_DST_OCI_REG_PASS
-              value: 7tSgSgXIxVnqKlS5LmpI8dvexz2fQXto
+              value: QenxGhigrVcomFWh5qaG2H3DvBWwZV7q
             - name: CHUNKER_DST_OCI_REG_URL
               value: reg1.chunks.76k.io
           ports:

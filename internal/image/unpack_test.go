@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"github.com/chunks76k/internal/image/testdata"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/stretchr/testify/assert"
 	"io"
-	"reflect"
 	"testing"
 )
 
@@ -19,31 +19,31 @@ func TestUnpackDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read img: %v", err)
 	}
-	expected := map[string]File{
-		"/a/": {
+	expected := []File{
+		{
 			AbsPath: "/a/",
-			RelPath: "a/",
+			RelPath: "/",
 			Dir:     true,
 		},
-		"/a/b/": {
+		{
 			AbsPath: "/a/b/",
-			RelPath: "a/b/",
+			RelPath: "/b/",
 			Dir:     true,
 		},
-		"/a/b/file2": {
+		{
 			AbsPath: "/a/b/file2",
-			RelPath: "a/b/file2",
+			RelPath: "/b/file2",
 			Content: []byte{102, 105, 108, 101, 50, 10, 99, 104, 97, 110, 103, 101, 100, 10},
 			Size:    14,
 		},
-		"/a/b/c/": {
+		{
 			AbsPath: "/a/b/c/",
-			RelPath: "a/b/c/",
+			RelPath: "/b/c/",
 			Dir:     true,
 		},
-		"/a/b/c/file3": {
+		{
 			AbsPath: "/a/b/c/file3",
-			RelPath: "a/b/c/file3",
+			RelPath: "/b/c/file3",
 			Content: []byte{102, 105, 108, 101, 51, 10},
 			Size:    6,
 		},
@@ -52,9 +52,5 @@ func TestUnpackDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unpack: %v", err)
 	}
-	if !reflect.DeepEqual(expected, files) {
-		t.Logf("expected: %v", expected)
-		t.Logf("got:      %v", files)
-		t.Fatalf("unexpected values")
-	}
+	assert.ElementsMatch(t, expected, files)
 }

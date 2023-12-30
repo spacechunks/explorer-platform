@@ -13,12 +13,12 @@ func ProcessImage(src OCISource, dst OCISource, configPath string) (Config, erro
 	if err != nil {
 		return Config{}, fmt.Errorf("pull image: %w", err)
 	}
-	f, err := image.UnpackFile(img, configPath)
+	confFile, err := image.UnpackFile(img, configPath)
 	if err != nil {
 		return Config{}, fmt.Errorf("find config: %w", err)
 	}
 	var conf Config
-	if err := yaml.Unmarshal(f.Content, &conf); err != nil {
+	if err := yaml.Unmarshal(confFile.Content, &conf); err != nil {
 		return Config{}, fmt.Errorf("unmarshal config: %w", err)
 	}
 	// for each variant create a new image
@@ -31,8 +31,7 @@ func ProcessImage(src OCISource, dst OCISource, configPath string) (Config, erro
 		if err != nil {
 			return Config{}, fmt.Errorf("extract dir: %w", err)
 		}
-		for path := range files {
-
+		for _, f := range files {
 			// adjust absolute path so variant files end up
 			// in the server root directory when appending the layer.
 			f.AbsPath = fmt.Sprintf("%s%s", conf.ServerRoot, f.RelPath)
