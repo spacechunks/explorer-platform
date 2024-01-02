@@ -217,68 +217,6 @@ func UnpackDir(img ociv1.Image, path string) ([]File, error) {
 	}
 
 	return values(final), nil
-
-	/*
-		// TODO: cut away root dir, because we want
-
-					// files which should be removed are prefixed with .wh
-					// see: https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/layer.md#L246
-					//
-					// filename := .wh.myscript.sh
-					filename := filepath.Base(abs)
-					if strings.HasPrefix(filename, ".wh") {
-						var (
-							// filename := myscript.sh
-							f   = filename[4:]
-							dir = filepath.Dir(abs)
-							// remove all files under p
-							rmAll = func(m map[string]File, p string) {
-								for k := range fmap {
-									if !strings.HasPrefix(k, p) {
-										continue
-									}
-									delete(fmap, k)
-								}
-							}
-						)
-						// this indicates that the all files
-						// contained within the directory should be deleted.
-						// example: /dir1/dir2/.wh..wh..opq
-						// see https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/layer.md#L284
-						if filename == ".wh..opq" {
-							rmAll(fmap, dir)
-							continue
-						}
-						// path := <path-to-dir>/myscript.sh
-						path := fmt.Sprintf("%s/%s", filepath.Dir(abs), f)
-						// .wh prefixed directories should also be removed completely
-						if hdr.Typeflag == tar.TypeDir {
-							rmAll(fmap, path)
-							continue
-						}
-						delete(fmap, path)
-						continue
-					}
-					if hdr.Typeflag == tar.TypeDir {
-						fmap[abs] = File{
-							AbsPath: abs,
-							RelPath: strings.TrimPrefix(abs, path),
-							Dir:     true,
-						}
-						continue
-					}
-					var content = &bytes.Buffer{}
-					if _, err := io.Copy(content, tr); err != nil {
-						return nil, fmt.Errorf("copy config bytes: %w", err)
-					}
-					fmap[abs] = File{
-						AbsPath: abs,
-						RelPath: strings.TrimPrefix(abs, path),
-						Content: content.Bytes(),
-						Size:    hdr.Size,
-					}
-				}
-	*/
 }
 
 // AppendLayerFromFiles returns a new image object containing the appended layer

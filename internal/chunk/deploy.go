@@ -155,6 +155,11 @@ func reconcileVariantReplica(
 		if ignoreAlreadyExists(err) != nil {
 			return fmt.Errorf("create svc: %w", err)
 		}
+		// retrieve service again, to retrieve node port from status
+		svc, err = kube.CoreV1().Services(ns).Get(ctx, svc.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get svc: %w", err)
+		}
 		// 1-freggy-flash-easy.chunks.76k.io
 		domain := fmt.Sprintf("%d-%s-%s.chunks.76k.io", replica, deploy.Mode.String, deploy.Variant.String)
 		if err := configureDNS(
@@ -174,7 +179,7 @@ func reconcileVariantReplica(
 	log.Printf("updating exsiting variant deployment name=%s img=%s", name, imgRef)
 	handle.Spec.Template.Spec.Containers[0].Image = imgRef
 
-	// note that  we do not need to update dns, because
+	// note that  we do not need to update dns here, because
 	// we will point to a static IP, so nothing regarding
 	// DNS needs to be changed. records must be deleted
 	// when the variant deployment is deleted.
@@ -207,6 +212,7 @@ func nodePortSvc(name string, ns string) *corev1.Service {
 			Namespace: ns,
 		},
 		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				{
 					Protocol: corev1.ProtocolTCP,
@@ -216,7 +222,6 @@ func nodePortSvc(name string, ns string) *corev1.Service {
 			Selector: map[string]string{
 				"name": name,
 			},
-			Type: corev1.ServiceTypeNodePort,
 		},
 	}
 }
@@ -270,16 +275,35 @@ func configureDNS(port int32, ip, domain, zoneName, key, mail string) error {
 	if err != nil {
 		return fmt.Errorf("get zone: %w", err)
 	}
-	if _, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
-		Type:      "A",
-		Name:      domain,
-		Content:   ip,
-		TTL:       1, // automatic
-		Proxiable: false,
-	}); err != nil {
-		return fmt.Errorf("a record: %w", err)
+	id := cloudflare.ZoneIdentifier(zoneID)
+	records, _, err := api.ListDNSRecords(ctx, id, cloudflare.ListDNSRecordsParams{})
+	fmt.Println(records)
+	if !recordExists(records, domain) {
+		log.Printf("creating A record domain=%s ip=%s\n", domain, ip)
+		if err := createDNSRecord(ctx, api, zoneID, domain, "A", ip, -1); err != nil {
+			return fmt.Errorf("create a record: %w", err)
+		}
 	}
-	if _, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
+	log.Printf("updating A record domain=%s ip=%s\n", domain, ip)
+	if _, err := api.UpdateDNSRecord(ctx, id, cloudflare.UpdateDNSRecordParams{
+		ID:      zoneID,
+		Type:    "A",
+		Name:    domain,
+		Content: ip,
+		TTL:     1, // automatic
+		Proxied: pointer.Bool(false),
+	}); err != nil {
+		return fmt.Errorf("update A record: %w", err)
+	}
+	if !recordExists(records, domain) {
+		log.Printf("creating SRV record domain=%s port=%d\n", domain, port)
+		if err := createDNSRecord(ctx, api, zoneID, domain, "SRV", "", port); err != nil {
+			return fmt.Errorf("create SRV record: %w", err)
+		}
+	}
+	log.Printf("updating SRV record domain=%s port=%d\n", domain, port)
+	if _, err := api.UpdateDNSRecord(ctx, id, cloudflare.UpdateDNSRecordParams{
+		ID:   zoneID,
 		Type: "SRV",
 		Data: map[string]any{
 			"name":     domain,
@@ -290,12 +314,67 @@ func configureDNS(port int32, ip, domain, zoneName, key, mail string) error {
 			"weight":   0,
 			"target":   domain,
 		},
-		TTL:       1, // automatic
-		Proxiable: false,
+		TTL:     1, // automatic
+		Proxied: pointer.Bool(false),
 	}); err != nil {
-		return fmt.Errorf("srv record: %w", err)
+		return fmt.Errorf("update SRV record: %w", err)
 	}
 	return nil
+}
+
+func createDNSRecord(
+	ctx context.Context,
+	api *cloudflare.API,
+	zoneID string,
+	domain string,
+	typeName string,
+	ip string,
+	port int32,
+) error {
+	if typeName == "A" {
+		if _, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
+			Type:      "A",
+			Name:      domain,
+			Content:   ip,
+			TTL:       1, // automatic
+			Proxiable: false,
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+	if typeName == "SRV" {
+		if _, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
+			Type: "SRV",
+			Data: map[string]any{
+				"name":     domain,
+				"port":     port,
+				"priority": 1,
+				"proto":    "_tcp",
+				"service":  "_minecraft",
+				"weight":   0,
+				"target":   domain,
+			},
+			TTL:       1, // automatic
+			Proxiable: false,
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+	return nil
+}
+
+func recordExists(records []cloudflare.DNSRecord, domain string) bool {
+	for _, r := range records {
+		if r.Type == "A" && r.Name == domain {
+			return true
+		}
+		if r.Type == "SRV" && r.Data.(map[string]any)["name"] == domain {
+			return true
+		}
+	}
+	return false
 }
 
 func ignoreAlreadyExists(err error) error {

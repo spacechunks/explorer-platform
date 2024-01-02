@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"github.com/chunks76k/internal/chunk"
 	"github.com/chunks76k/internal/webhook"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -85,12 +86,12 @@ func main() {
 					URL:  "ghcr.io",
 					Repo: "freggy/internal",*/
 				}
-				_ = chunk.Meta{
+				m := chunk.Meta{
 					// replace here to ensure we can use the id as a valid name everywhere
 					ChunkID:      strings.Replace(ref.Context().RepositoryStr(), "/", "-", -1),
 					ChunkVersion: ref.Identifier(),
 				}
-				_, err = chunk.ProcessImage(src, internalRepo, configPath)
+				conf, err := chunk.ProcessImage(src, internalRepo, configPath)
 				if err != nil {
 					log.Printf("process img: %v", err)
 					continue
@@ -100,15 +101,14 @@ func main() {
 					log.Printf("cannot acquire db conn: %v", err)
 					continue
 				}*/
-				/*
-					baseRef := fmt.Sprintf("%s/%s", internalRepo.RepoURL(), src.Repo)
-					if err = chunk.DeployAll(ctx, baseRef, m, chunkConf conn.Conn()); err != nil {
-						log.Printf("deploy all: %v", err)
-						continue
-					}
-					if err == nil {
-						return
-					}*/
+				baseRef := fmt.Sprintf("%s/%s", internalRepo.RepoURL(), src.Repo)
+				if err = chunk.DeployAll(context.Background(), baseRef, m, conf); err != nil {
+					log.Printf("deploy all: %v", err)
+					continue
+				}
+				if err == nil {
+					return
+				}
 				// wait a second so things might have recovered
 				time.Sleep(1 * time.Second)
 			}
