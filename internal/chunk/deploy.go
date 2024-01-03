@@ -277,7 +277,6 @@ func configureDNS(port int32, ip, domain, zoneName, key, mail string) error {
 	}
 	id := cloudflare.ZoneIdentifier(zoneID)
 	records, _, err := api.ListDNSRecords(ctx, id, cloudflare.ListDNSRecordsParams{})
-	fmt.Println(records)
 	if !recordExists(records, domain) {
 		log.Printf("creating A record domain=%s ip=%s\n", domain, ip)
 		if err := createDNSRecord(ctx, api, zoneID, domain, "A", ip, -1); err != nil {
