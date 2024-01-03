@@ -1,6 +1,0 @@
-version: 1
-serverRoot: /app
-variants:
-  - id: 2x2 # TODO: implement name validation (no spaces allowed etc)
-    path: /app/.chunks
-    replicas: 2

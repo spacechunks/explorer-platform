@@ -1,6 +1,6 @@
 FROM gradle:7.6.1-jdk17 as Builder
 
-ADD . /flash
+ADD minigame /flash
 WORKDIR /flash
 
 RUN chmod u+x gradlew
@@ -14,7 +14,7 @@ WORKDIR /opt/paper
 ADD https://api.papermc.io/v2/projects/paper/versions/1.20.2/builds/297/downloads/paper-1.20.2-297.jar paper.jar
 RUN echo "eula=true" > eula.txt
 COPY --from=Builder /flash/build/libs/lbwl-flash-all-*.jar plugins/flash.jar
-COPY mcserver/ mcserver/
+COPY mcserver mcserver/
 COPY .chunks.yaml .chunks.yaml
 
 #using optimised Garbage Collector Flags for Minecraft (https://aikar.co/2018/07/02/tuning-the-jvm-g1gc-garbage-collector-flags-for-minecraft/)

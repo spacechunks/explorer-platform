@@ -1,5 +1,0 @@
-version: 1
-serverRoot: /opt/spigot
-variants:
-  - name: 2x2
-    path: /opt/spigot/variants/2x2
