@@ -1,8 +1,0 @@
----
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: HelmRepository
-metadata:
-  name: haproxy-tech
-spec:
-  interval: 1m
-  url: https://haproxytech.github.io/helm-charts
