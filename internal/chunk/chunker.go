@@ -2,7 +2,7 @@ package chunk
 
 import (
 	"fmt"
-	"github.com/spacechunks/chunks/internal/image"
+	"github.com/spacechunks/platform/internal/image"
 	"gopkg.in/yaml.v3"
 	"log"
 )
