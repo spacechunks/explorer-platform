@@ -3,9 +3,9 @@ package chunk
 import (
 	"context"
 	"fmt"
-	"github.com/chunks76k/internal/db"
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/spacechunks/chunks/internal/db"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

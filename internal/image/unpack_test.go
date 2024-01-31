@@ -2,8 +2,8 @@ package image
 
 import (
 	"bytes"
-	"github.com/chunks76k/internal/image/testdata"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/spacechunks/chunks/internal/image/testdata"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"testing"
