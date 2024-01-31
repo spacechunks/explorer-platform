@@ -1,4 +1,4 @@
-module github.com/chunks76k
+module github.com/spacechunks/chunks
 
 go 1.21.4
 
