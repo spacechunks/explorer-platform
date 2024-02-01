@@ -23,7 +23,7 @@ func ProcessImage(src OCISource, dst OCISource, configPath string) (Config, erro
 	}
 	// for each variant create a new image
 	// using the pushed one as its base
-	for _, v := range conf.Variants { // TODO: use go routines (240KMH!!!!)
+	for _, v := range conf.Flavors { // TODO: use go routines (240KMH!!!!)
 		log.Printf("variant=%s", v.ID)
 		log.Printf("extract img=%s\n", src.Ref())
 		files, err := image.UnpackDir(img, v.Path)

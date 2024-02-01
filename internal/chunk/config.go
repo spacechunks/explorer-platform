@@ -13,9 +13,9 @@ type DBConfig struct {
 type Config struct {
 	// members below we read from the
 	// users configuration
-	Version    string    `yaml:"version"`
-	ServerRoot string    `yaml:"serverRoot"`
-	Variants   []Variant `yaml:"variants"`
+	Version    string   `yaml:"version"`
+	ServerRoot string   `yaml:"serverRoot"`
+	Flavors    []Flavor `yaml:"flavors"`
 }
 
 type OCISource struct { // TODO: better name
@@ -43,7 +43,7 @@ type Meta struct {
 	ChunkVersion string
 }
 
-type Variant struct {
+type Flavor struct {
 	ID       string `yaml:"id"`
 	Path     string `yaml:"path"`
 	Replicas int    `yaml:"replicas"`
