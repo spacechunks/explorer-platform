@@ -1,0 +1,2 @@
+# exclude all languages within example/ from github language overview
+example/* linguist-vendored
