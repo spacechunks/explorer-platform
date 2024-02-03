@@ -2,19 +2,20 @@ package image_test
 
 import (
 	"bytes"
+	"io"
+	"testing"
+
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/spacechunks/platform/internal/image"
 	"github.com/spacechunks/platform/internal/image/testdata"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"testing"
 )
 
 func TestRepack(t *testing.T) {
 	testImgOpener := func() (io.ReadCloser, error) {
 		return io.NopCloser(bytes.NewReader(testdata.RepackImage)), nil
 	}
-	img, err := tarball.Image(testImgOpener, nil)
+	src, err := tarball.Image(testImgOpener, nil)
 	if err != nil {
 		t.Fatalf("read img: %v", err)
 	}
@@ -71,12 +72,12 @@ func TestRepack(t *testing.T) {
 		},
 	}
 
-	imgs, err := image.Repack(img, "a", []string{"overlay"})
+	img, err := image.Repack(src, "a", "overlay")
 	if err != nil {
 		t.Fatalf("repack: %v", err)
 	}
 
-	files, err := image.UnpackDir(imgs[0], "a")
+	files, err := image.UnpackDir(img, "a")
 	if err != nil {
 		t.Fatalf("unpack: %v", err)
 	}

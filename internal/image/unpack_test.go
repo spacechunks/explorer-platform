@@ -2,12 +2,13 @@ package image_test
 
 import (
 	"bytes"
+	"io"
+	"testing"
+
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/spacechunks/platform/internal/image"
 	"github.com/spacechunks/platform/internal/image/testdata"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"testing"
 )
 
 // use simple test, because different layer configurations are

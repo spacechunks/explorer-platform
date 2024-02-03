@@ -2,9 +2,10 @@ package chunk
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/spacechunks/platform/internal/image"
 	"gopkg.in/yaml.v3"
-	"log"
 )
 
 func ProcessImagePush(src OCISource, dst OCISource, configPath string) (Config, error) {
@@ -36,6 +37,5 @@ func ProcessImagePush(src OCISource, dst OCISource, configPath string) (Config, 
 			return Config{}, fmt.Errorf("img push: %w", err)
 		}
 	}
-
 	return conf, nil
 }

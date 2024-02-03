@@ -5,15 +5,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"path/filepath"
+	"slices"
+	"strings"
+
 	ociv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"
-	"io"
-	"path/filepath"
-	"slices"
-	"strings"
 )
 
 // TODO: tests
@@ -33,13 +34,11 @@ func UnpackFile(img ociv1.Image, path string) (File, error) {
 	if err != nil {
 		return File{}, fmt.Errorf("image layers: %w", err)
 	}
-
 	// we will find our file most likely in
 	// the latest layers that have been added.
 	// new layers are appended to the end of the
 	// slice, so we have to reverse it.
 	slices.Reverse(layers)
-
 	for _, l := range layers {
 		data, err := l.Uncompressed()
 		if err != nil {

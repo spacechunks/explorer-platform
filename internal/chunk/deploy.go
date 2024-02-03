@@ -3,6 +3,10 @@ package chunk
 import (
 	"context"
 	"fmt"
+	"log"
+	"sync"
+	"time"
+
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/spacechunks/platform/internal/db"
@@ -13,9 +17,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
-	"log"
-	"sync"
-	"time"
 )
 
 const ns = "chunks-system"

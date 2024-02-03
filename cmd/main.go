@@ -4,14 +4,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/peterbourgon/ff"
-	"github.com/spacechunks/platform/internal/chunk"
-	"github.com/spacechunks/platform/internal/webhook"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/peterbourgon/ff"
+	"github.com/spacechunks/platform/internal/chunk"
+	"github.com/spacechunks/platform/internal/webhook"
 )
 
 const (

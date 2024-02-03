@@ -3,11 +3,12 @@ package image
 import (
 	"crypto/tls"
 	"fmt"
+	"net/http"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	ociv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"net/http"
 )
 
 func Push(img ociv1.Image, imgRef, user, pass string) error {

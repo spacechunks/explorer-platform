@@ -2,8 +2,9 @@ package image
 
 import (
 	"fmt"
-	ociv1 "github.com/google/go-containerregistry/pkg/v1"
 	"log"
+
+	ociv1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 func Repack(src ociv1.Image, rootPath string, path string) (ociv1.Image, error) {
