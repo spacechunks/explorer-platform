@@ -91,7 +91,7 @@ func main() {
 					ChunkID:      strings.Replace(ref.Context().RepositoryStr(), "/", "-", -1),
 					ChunkVersion: ref.Identifier(),
 				}
-				conf, err := chunk.ProcessImage(src, internalRepo, configPath)
+				conf, err := chunk.ProcessImagePush(src, internalRepo, configPath)
 				if err != nil {
 					log.Printf("process img: %v", err)
 					continue
