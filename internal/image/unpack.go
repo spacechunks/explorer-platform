@@ -11,11 +11,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"
 	"io"
-	"log"
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 )
 
 // TODO: tests
@@ -60,18 +58,16 @@ func UnpackFile(img ociv1.Image, path string) (File, error) {
 			if hdr.Typeflag == tar.TypeDir {
 				continue
 			}
-			// tar deals with relative paths, so make em absolute
-			abs := fmt.Sprintf("/%s", hdr.Name)
-			if abs != path {
+			if hdr.Name != path {
 				continue
 			}
 			var content = &bytes.Buffer{}
 			if _, err := io.Copy(content, tr); err != nil {
-				return File{}, fmt.Errorf("copy config bytes: %w", err)
+				return File{}, fmt.Errorf("copy file bytes: %w", err)
 			}
 			return File{
-				AbsPath: abs,
-				RelPath: strings.TrimPrefix(abs, path),
+				AbsPath: hdr.Name,
+				RelPath: strings.TrimPrefix(hdr.Name, path),
 				Content: content.Bytes(),
 				Size:    hdr.Size,
 			}, nil
@@ -79,28 +75,6 @@ func UnpackFile(img ociv1.Image, path string) (File, error) {
 	}
 
 	return File{}, errors.New("file not found")
-}
-
-// cmap maps each element concurrently using an errgroup.Group.
-// returns a slice with containing the mapped elements.
-func cmap[T any, L any](in []L, fn func(layer L) (T, error)) ([]T, error) {
-	g := &errgroup.Group{}
-	s := make([]T, len(in))
-	for i, val := range in {
-		i, val := i, val
-		g.Go(func() error {
-			ret, err := fn(val)
-			if err != nil {
-				return err
-			}
-			s[i] = ret
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return nil, fmt.Errorf("uncompress in: %v", err)
-	}
-	return s, nil
 }
 
 // UnpackDir applies each layers change set for a given directory.
@@ -129,23 +103,21 @@ func UnpackDir(img ociv1.Image, path string) ([]File, error) {
 		fmap := make(map[string]File)
 		tr := tar.NewReader(data)
 		defer data.Close()
-
-		t1 := time.Now()
+		//t1 := time.Now()
+		//log.Printf("starting layer: %s\n", t1.String())
 		for {
 			hdr, err := tr.Next()
 			if err == io.EOF {
 				break
 			}
-			// tar deals with relative paths, so make em absolute
-			abs := fmt.Sprintf("/%s", hdr.Name)
 			// make sure we are within path
-			if !strings.HasPrefix(abs, path) {
+			if !strings.HasPrefix(hdr.Name, path) {
 				continue
 			}
 			if hdr.Typeflag == tar.TypeDir {
-				fmap[abs] = File{
-					AbsPath: abs,
-					RelPath: strings.TrimPrefix(abs, path),
+				fmap[hdr.Name] = File{
+					AbsPath: hdr.Name,
+					RelPath: strings.TrimPrefix(hdr.Name, path),
 					Dir:     true,
 				}
 				continue
@@ -155,16 +127,15 @@ func UnpackDir(img ociv1.Image, path string) ([]File, error) {
 			if _, err := io.Copy(content, tr); err != nil {
 				return nil, fmt.Errorf("copy config bytes: %w", err)
 			}
-			fmap[abs] = File{
-				AbsPath: abs,
-				RelPath: strings.TrimPrefix(abs, path),
+			fmap[hdr.Name] = File{
+				AbsPath: hdr.Name,
+				RelPath: strings.TrimPrefix(hdr.Name, path),
 				Content: content.Bytes(),
 				Size:    hdr.Size,
 			}
 		}
-
-		t2 := time.Now()
-		log.Printf("layer: %v", t2.Sub(t1))
+		//t2 := time.Now()
+		//log.Printf("layer: %v\n", t2.Sub(t1))
 		return fmap, nil
 	})
 	if err != nil {
@@ -202,20 +173,18 @@ func UnpackDir(img ociv1.Image, path string) ([]File, error) {
 					rmAll(final, dir)
 					continue
 				}
-				// path := <path-to-dir>/myscript.sh
-				path := fmt.Sprintf("%s/%s", filepath.Dir(abs), f)
 				// .wh prefixed directories should also be removed completely
 				if file.Dir {
-					rmAll(final, path)
+					rmAll(final, dir)
 					continue
 				}
-				delete(final, path)
+				// path := <path-to-dir>/myscript.sh
+				delete(final, fmt.Sprintf("%s/%s", filepath.Dir(abs), f))
 				continue
 			}
 			final[abs] = file
 		}
 	}
-
 	return values(final), nil
 }
 
@@ -239,12 +208,36 @@ func AppendLayerFromFiles(img ociv1.Image, files []File) (ociv1.Image, error) {
 			return nil, fmt.Errorf("write file content: %w", err)
 		}
 	}
-	tarw.Close()
+	if err := tarw.Close(); err != nil {
+		return nil, fmt.Errorf("tar close: %w", err)
+	}
 	ret, err := mutate.AppendLayers(img, static.NewLayer(w.Bytes(), types.DockerUncompressedLayer))
 	if err != nil {
 		return nil, fmt.Errorf("append layer: %w", err)
 	}
 	return ret, nil
+}
+
+// cmap maps each element concurrently using an errgroup.Group.
+// returns a slice containing the mapped elements.
+func cmap[T any, K any](in []K, fn func(K) (T, error)) ([]T, error) {
+	g := &errgroup.Group{}
+	s := make([]T, len(in))
+	for i, val := range in {
+		i, val := i, val
+		g.Go(func() error {
+			ret, err := fn(val)
+			if err != nil {
+				return err
+			}
+			s[i] = ret
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("cmap: %v", err)
+	}
+	return s, nil
 }
 
 func values(m map[string]File) []File {

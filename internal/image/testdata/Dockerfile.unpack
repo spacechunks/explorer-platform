@@ -13,4 +13,4 @@ RUN mkdir -p /a/b/c
 RUN echo "file2" >> /a/b/file2
 RUN echo "file3" >> /a/b/c/file3
 RUN rm /a/file1
-RUN echo "changed" >> /a/b/file2
+RUN echo "changed" > /a/b/file2
