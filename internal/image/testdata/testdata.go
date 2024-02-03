@@ -2,5 +2,8 @@ package testdata
 
 import _ "embed"
 
-//go:embed img.tar.gz
-var Image []byte
+//go:embed unpack-img.tar.gz
+var UnpackImage []byte
+
+//go:embed repack-img.tar.gz
+var RepackImage []byte

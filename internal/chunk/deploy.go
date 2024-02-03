@@ -3,9 +3,13 @@ package chunk
 import (
 	"context"
 	"fmt"
+	"log"
+	"sync"
+	"time"
+
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/spacechunks/chunks/internal/db"
+	"github.com/spacechunks/platform/internal/db"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -13,9 +17,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
-	"log"
-	"sync"
-	"time"
 )
 
 const ns = "chunks-system"
@@ -50,7 +51,7 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config /*con
 		// TODO: choose in which cluster variant will run
 		// TODO: write to variant_deployment table
 		log.Printf("no variant deployment found\n")
-		for _, v := range conf.Variants {
+		for _, v := range conf.Flavors {
 			// TODO: need variant deployment as domain object
 			deploys = append(deploys, db.VariantDeployment{
 				Mode: pgtype.Text{
@@ -75,7 +76,7 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config /*con
 			deploy.Mode.String,
 			deploy.Variant.String,
 		)
-		v, ok := variant(conf.Variants, deploy.Variant.String)
+		v, ok := variant(conf.Flavors, deploy.Variant.String)
 		if !ok {
 			return fmt.Errorf("variant %s not found", deploy.Variant.String)
 		}
@@ -194,13 +195,13 @@ func reconcileVariantReplica(
 	return nil
 }
 
-func variant(s []Variant, id string) (Variant, bool) {
+func variant(s []Flavor, id string) (Flavor, bool) {
 	for _, v := range s {
 		if v.ID == id {
 			return v, true
 		}
 	}
-	return Variant{}, false
+	return Flavor{}, false
 }
 
 func nodePortSvc(name string, ns string) *corev1.Service {

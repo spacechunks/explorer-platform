@@ -1,0 +1,4 @@
+# purpose of this dockerfile is
+FROM alpine
+WORKDIR /
+COPY . .

@@ -4,14 +4,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/peterbourgon/ff"
-	"github.com/spacechunks/chunks/internal/chunk"
-	"github.com/spacechunks/chunks/internal/webhook"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/peterbourgon/ff"
+	"github.com/spacechunks/platform/internal/chunk"
+	"github.com/spacechunks/platform/internal/webhook"
 )
 
 const (
@@ -91,7 +92,7 @@ func main() {
 					ChunkID:      strings.Replace(ref.Context().RepositoryStr(), "/", "-", -1),
 					ChunkVersion: ref.Identifier(),
 				}
-				conf, err := chunk.ProcessImage(src, internalRepo, configPath)
+				conf, err := chunk.ProcessImagePush(src, internalRepo, configPath)
 				if err != nil {
 					log.Printf("process img: %v", err)
 					continue
