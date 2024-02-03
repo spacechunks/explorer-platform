@@ -10,6 +10,28 @@ import (
 	"net/http"
 )
 
+func Push(img ociv1.Image, imgRef, user, pass string) error {
+	ref, err := name.ParseReference(imgRef)
+	if err != nil {
+		return fmt.Errorf("push: parse image ref: %w", err)
+	}
+	// TODO: view remote.DefaultTransport
+	tp := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+		ForceAttemptHTTP2: true,
+	}
+	auth := auther{
+		username: user,
+		password: pass,
+	}
+	if err := remote.Write(ref, img, remote.WithAuth(auth), remote.WithTransport(tp)); err != nil {
+		return fmt.Errorf("push image: %w", err)
+	}
+	return nil
+}
+
 func Pull(imgRef, user, pass string) (ociv1.Image, error) {
 	ref, err := name.ParseReference(imgRef)
 	if err != nil {
@@ -31,28 +53,6 @@ func Pull(imgRef, user, pass string) (ociv1.Image, error) {
 		return nil, fmt.Errorf("pull image: %w", err)
 	}
 	return img, nil
-}
-
-func Push(img ociv1.Image, imgRef, user, pass string) error {
-	ref, err := name.ParseReference(imgRef)
-	if err != nil {
-		return fmt.Errorf("push: parse image ref: %w", err)
-	}
-	// TODO: view remote.DefaultTransport
-	tp := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-		ForceAttemptHTTP2: true,
-	}
-	auth := auther{
-		username: user,
-		password: pass,
-	}
-	if err := remote.Write(ref, img, remote.WithAuth(auth), remote.WithTransport(tp)); err != nil {
-		return fmt.Errorf("push image: %w", err)
-	}
-	return nil
 }
 
 // hack to avoid having to rely on keychain stuff
