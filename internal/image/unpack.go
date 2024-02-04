@@ -21,10 +21,15 @@ import (
 
 type File struct {
 	AbsPath string
-	RelPath string
-	Content []byte
-	Size    int64
-	Dir     bool
+	// StrippedPath is the absolute path of
+	// the file or directory without its
+	// root directory. for path /a/b/file.txt with
+	// a being the root directory StrippedPath
+	// would be /b/file.txt
+	StrippedPath string
+	Content      []byte
+	Size         int64
+	Dir          bool
 }
 
 // FIXME: refactor code a little bit
@@ -65,10 +70,10 @@ func UnpackFile(img ociv1.Image, path string) (File, error) {
 				return File{}, fmt.Errorf("copy file bytes: %w", err)
 			}
 			return File{
-				AbsPath: hdr.Name,
-				RelPath: strings.TrimPrefix(hdr.Name, path),
-				Content: content.Bytes(),
-				Size:    hdr.Size,
+				AbsPath:      hdr.Name,
+				StrippedPath: strings.TrimPrefix(hdr.Name, path),
+				Content:      content.Bytes(),
+				Size:         hdr.Size,
 			}, nil
 		}
 	}
@@ -115,9 +120,9 @@ func UnpackDir(img ociv1.Image, path string) ([]File, error) {
 			}
 			if hdr.Typeflag == tar.TypeDir {
 				fmap[hdr.Name] = File{
-					AbsPath: hdr.Name,
-					RelPath: strings.TrimPrefix(hdr.Name, path),
-					Dir:     true,
+					AbsPath:      hdr.Name,
+					StrippedPath: strings.TrimPrefix(hdr.Name, path),
+					Dir:          true,
 				}
 				continue
 			}
@@ -127,10 +132,10 @@ func UnpackDir(img ociv1.Image, path string) ([]File, error) {
 				return nil, fmt.Errorf("copy config bytes: %w", err)
 			}
 			fmap[hdr.Name] = File{
-				AbsPath: hdr.Name,
-				RelPath: strings.TrimPrefix(hdr.Name, path),
-				Content: content.Bytes(),
-				Size:    hdr.Size,
+				AbsPath:      hdr.Name,
+				StrippedPath: strings.TrimPrefix(hdr.Name, path),
+				Content:      content.Bytes(),
+				Size:         hdr.Size,
 			}
 		}
 		//t2 := time.Now()

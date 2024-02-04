@@ -23,31 +23,31 @@ func TestUnpackDir(t *testing.T) {
 	}
 	expected := []image.File{
 		{
-			AbsPath: "a/",
-			RelPath: "/",
-			Dir:     true,
+			AbsPath:      "a/",
+			StrippedPath: "/",
+			Dir:          true,
 		},
 		{
-			AbsPath: "a/b/",
-			RelPath: "/b/",
-			Dir:     true,
+			AbsPath:      "a/b/",
+			StrippedPath: "/b/",
+			Dir:          true,
 		},
 		{
-			AbsPath: "a/b/file2",
-			RelPath: "/b/file2",
-			Content: []byte("changed\n"),
-			Size:    8,
+			AbsPath:      "a/b/file2",
+			StrippedPath: "/b/file2",
+			Content:      []byte("changed\n"),
+			Size:         8,
 		},
 		{
-			AbsPath: "a/b/c/",
-			RelPath: "/b/c/",
-			Dir:     true,
+			AbsPath:      "a/b/c/",
+			StrippedPath: "/b/c/",
+			Dir:          true,
 		},
 		{
-			AbsPath: "a/b/c/file3",
-			RelPath: "/b/c/file3",
-			Content: []byte("file3\n"),
-			Size:    6,
+			AbsPath:      "a/b/c/file3",
+			StrippedPath: "/b/c/file3",
+			Content:      []byte("file3\n"),
+			Size:         6,
 		},
 	}
 	files, err := image.UnpackDir(img, "a")
