@@ -21,7 +21,17 @@ import (
 
 const ns = "chunks-system"
 
-func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config /*conn *pgx.Conn*/) error {
+func DeployAll(
+	ctx context.Context,
+	imgRepo string,
+	meta Meta,
+	conf Config,
+	dnsZone string,
+	cfMail string,
+	cfKey string,
+	clusterURL string,
+	clusterToken string,
+) error {
 	// TODO: run multiple versions at the same time?
 	// TODO:
 	// collect how many servers running this mode are live
@@ -50,7 +60,7 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config /*con
 	if len(deploys) == 0 {
 		// TODO: choose in which cluster variant will run
 		// TODO: write to variant_deployment table
-		log.Printf("no variant deployment found\n")
+		log.Printf("no flavor deployment found\n")
 		for _, v := range conf.Flavors {
 			// TODO: need variant deployment as domain object
 			deploys = append(deploys, db.VariantDeployment{
@@ -61,10 +71,10 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config /*con
 					String: v.ID,
 				},
 				ClusterUrl: pgtype.Text{
-					String: "https://4513aec9-3a16-4b74-af2d-c99c3454af91.vultr-k8s.com:6443",
+					String: clusterURL,
 				},
 				ClusterToken: pgtype.Text{
-					String: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjBOLTdtczRRUmpTNURwTWhpdUdUcjA2QTdkZGhZb3RMMFByZEdvTUFQclUifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJjaHVua3Mtc3lzdGVtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNodW5rZXItY2x1c3Rlci10b2tlbiIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjaHVua2VyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiODgyMmQ2MWEtMWIyZi00NWQwLTgyMzAtN2Q1ZGFmNzgzMDJiIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmNodW5rcy1zeXN0ZW06Y2h1bmtlciJ9.NM7XlG77ctLGUjYsH5G_gZ8z4Sp9o4_s_Zg56XIoGrQ0JKeK3ZQRkN1Vd9iG45IjZHhy6VhTfypJBE_geAGg4RqD7pjFN8zV7YiFSsO8B88gfQKdlQ_ntZ_pilayj6vYaIeQ8TtCj27edrVaMdGqQrVpcQTeVeU5IEG7aNtWc0F-dC8iU8NbbGqu-RRLeDexlxw_x4kP2V7ccRukEF98cEYp6u2SfXJLlZdsVt-MmCDiXHCNvMv1a9SJiGbemyDNc0hZIY9fwMPEvs23GBpiToWyD5T55UxgCQZjs-tFg1tiDa35Uf-tcz0mUAoYG6TyE0QRpaDRoIPq5NrwY3MeRA",
+					String: clusterToken,
 				},
 			})
 		}
@@ -89,10 +99,10 @@ func DeployAll(ctx context.Context, imgRepo string, meta Meta, conf Config /*con
 				// TODO: better reconcile:
 				// * redeploy deleted resources
 				imgRef := fmt.Sprintf("%s:%s-%s", imgRepo, meta.ChunkVersion, v.ID)
-				err = reconcileVariantReplica(ctx, deploy, imgRef, i)
+				err = reconcileVariantReplica(ctx, deploy, imgRef, i, dnsZone, cfMail, cfKey)
 				if err != nil {
 					log.Printf(
-						"reconcile mode=%s variant=%s replica=%d err=%v",
+						"reconcile mode=%s flavor=%s replica=%d err=%v",
 						deploy.Mode.String,
 						deploy.Variant.String,
 						i,
@@ -115,6 +125,9 @@ func reconcileVariantReplica(
 	deploy db.VariantDeployment,
 	imgRef string,
 	replica int,
+	dnsZone string,
+	cfMail string,
+	cfKey string,
 ) error {
 	kube, err := kubernetes.NewForConfig(&rest.Config{
 		Host:        deploy.ClusterUrl.String,
@@ -167,9 +180,9 @@ func reconcileVariantReplica(
 			svc.Spec.Ports[0].NodePort,
 			"157.90.167.132", // TODO: cluster LB IP
 			domain,
-			"76k.io",
-			"43994d4a79a7e5c28dc5476589eb9da0f7ad9",
-			"riegeryannic@gmail.com",
+			dnsZone,
+			cfKey,
+			cfMail,
 		); err != nil {
 			return fmt.Errorf("dns: %w", err)
 		}

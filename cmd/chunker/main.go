@@ -42,6 +42,13 @@ func main() {
 		dstRegUser = fs.String("DST_OCI_REG_USER", "", "destination oci registry user")
 		dstRegPass = fs.String("DST_OCI_REG_PASS", "", "destination oci registry password")
 		dstRegURL  = fs.String("DST_OCI_REG_URL", "", "destination oci registry url")
+
+		cfMail  = fs.String("CF_MAIL", "", "cloudflare mail")
+		cfKey   = fs.String("CF_KEY", "", "cloudflare api key")
+		dnsZone = fs.String("DNS_ZONE", "", "dns zone present in cloudflare")
+
+		clusterURL   = fs.String("CLUSTER_URL", "", "kubernetes api server endpoint")
+		clusterToken = fs.String("CLUSTER_TOKEN", "", "kubernetes api token")
 	)
 
 	if err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("CHUNKER")); err != nil {
@@ -76,16 +83,11 @@ func main() {
 					URL: ref.Context().RegistryStr(),
 					Tag: ref.Identifier(),
 				}
-
 				internalRepo := chunk.OCISource{
 					User: *dstRegUser,
 					Pass: *dstRegPass,
 					URL:  *dstRegURL,
 					Repo: "chunks-system",
-					/*User: "freggy",
-					Pass: "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",
-					URL:  "ghcr.io",
-					Repo: "freggy/internal",*/
 				}
 				m := chunk.Meta{
 					// replace here to ensure we can use the id as a valid name everywhere
@@ -103,7 +105,17 @@ func main() {
 					continue
 				}*/
 				baseRef := fmt.Sprintf("%s/%s", internalRepo.RepoURL(), src.Repo)
-				if err = chunk.DeployAll(context.Background(), baseRef, m, conf); err != nil {
+				if err = chunk.DeployAll(
+					context.Background(),
+					baseRef,
+					m,
+					conf,
+					*dnsZone,
+					*cfMail,
+					*cfKey,
+					*clusterURL,
+					*clusterToken,
+				); err != nil {
 					log.Printf("deploy all: %v", err)
 					continue
 				}
