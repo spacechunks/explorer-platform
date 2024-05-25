@@ -1,5 +1,0 @@
-## not needed for POC
-* handle PVC
-* block endpoint except registry ones
-* redis HA deployment
-* pg HA deployment
