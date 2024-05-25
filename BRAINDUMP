@@ -1,0 +1,15 @@
+## not needed for POC
+* handle PVC
+* block endpoint except registry ones
+* redis HA deployment
+* pg HA deployment
+
+* dev mode chunks:
+  * agent process checks for changes
+  * if file changes detected 
+    * stop alread running server process
+    * create new server root directory based 
+      on changed files.
+    * start new server using the previously
+      created root directory.
+  * this way we have fast dev experience (hopefully)
