@@ -6,10 +6,14 @@
 
 * dev mode chunks:
   * agent process checks for changes
-  * if file changes detected 
+  * if file changes detected
     * stop alread running server process
-    * create new server root directory based 
+    * create new server root directory based
       on changed files.
     * start new server using the previously
       created root directory.
   * this way we have fast dev experience (hopefully)
+
+* tun
+  * ip tunnel forwarding mc server traffic
+  * see https://whimsical.com/chunk-explorer-DEenwdYYJjsfRTzN2zN6vr
