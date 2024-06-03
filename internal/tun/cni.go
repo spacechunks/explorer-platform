@@ -1,13 +1,11 @@
 package tun
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
-	"strconv"
-	"strings"
+	"github.com/vishvananda/netns"
 )
 
 const mtu = 1400
@@ -27,15 +25,14 @@ func CNIFuncs() skel.CNIFuncs {
 }
 
 func cniAdd(args *skel.CmdArgs) error {
-	var conf Conf
-	if err := json.Unmarshal(args.StdinData, &conf); err != nil {
+	//var conf Conf
+	/*if err := json.Unmarshal(args.StdinData, &conf); err != nil {
 		return fmt.Errorf("add: parse network config: %v", err)
-	}
+	}*/
 	var (
 		hostVethName = fmt.Sprintf("host%s", args.ContainerID)
 		podVethName  = fmt.Sprintf("pod%s", args.ContainerID)
 	)
-	// TODO: create in pod netns
 	podVeth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: podVethName,
@@ -43,18 +40,15 @@ func cniAdd(args *skel.CmdArgs) error {
 		},
 		PeerName: hostVethName,
 	}
-	hostVeth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: hostVethName,
-			MTU:  mtu,
-		},
-		PeerName: podVethName,
-	}
 	if err := netlink.LinkAdd(podVeth); err != nil {
 		return fmt.Errorf("add pod veth: %v", err)
 	}
-	if err := netlink.LinkAdd(hostVeth); err != nil {
-		return fmt.Errorf("add host veth: %v", err)
+	handle, err := netns.GetFromPath(args.Netns)
+	if err != nil {
+		return fmt.Errorf("get netns fd: %v", err)
+	}
+	if err := netlink.LinkSetNsFd(podVeth, int(handle)); err != nil {
+		return fmt.Errorf("move pod veth to ns %d: %v", int(handle), err)
 	}
 	// TODO: attach ebpf progs
 	return nil
@@ -62,14 +56,4 @@ func cniAdd(args *skel.CmdArgs) error {
 
 func cniDel(args *skel.CmdArgs) error {
 	return nil
-}
-
-func parseNetnsID(netnsPath string) (int, error) {
-	// /run/netns/[nsname]
-	parts := strings.Split(netnsPath, "/")
-	id, err := strconv.Atoi(parts[len(parts)-1])
-	if err != nil {
-		return -1, fmt.Errorf("parse netns id: %v", err)
-	}
-	return id, nil
 }
