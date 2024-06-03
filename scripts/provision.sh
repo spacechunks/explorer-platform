@@ -1,3 +1,4 @@
+# crio
 MAJOR_VERSION=1.30
 curl -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/v$MAJOR_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/cri-o-apt-keyring.gpg
 echo "deb [signed-by=/etc/apt/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/stable:/v$MAJOR_VERSION/deb/ /" | tee /etc/apt/sources.list.d/cri-o.list
@@ -7,6 +8,7 @@ systemctl start crio.service
 sysctl -w net.ipv4.ip_forward=1
 sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf # persist after reboot
 
+# criu
 wget https://github.com/checkpoint-restore/criu/archive/refs/tags/v3.19.tar.gz
 tar -xzvf v3.19.tar.gz
 export DEBIAN_FRONTEND=noninteractive
@@ -17,3 +19,8 @@ apt install -y iproute2 libnftables-dev libgnutls28-dev
 apt install -y libnl-3-dev libnet-dev libcap-dev
 cd criu-3.19
 make install
+
+# go
+wget https://go.dev/dl/go1.22.3.linux-arm64.tar.gz
+tar -C /usr/local -xzf go1.22.3.linux-arm64.tar.gz
+echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.profile
