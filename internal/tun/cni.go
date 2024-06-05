@@ -33,21 +33,21 @@ func cniAdd(args *skel.CmdArgs) error {
 		hostVethName = fmt.Sprintf("host%s", args.ContainerID)
 		podVethName  = fmt.Sprintf("pod%s", args.ContainerID)
 	)
-	podVeth := &netlink.Veth{
+	vethpair := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: podVethName,
 			MTU:  mtu,
 		},
 		PeerName: hostVethName,
 	}
-	if err := netlink.LinkAdd(podVeth); err != nil {
-		return fmt.Errorf("add pod veth: %v", err)
+	if err := netlink.LinkAdd(vethpair); err != nil {
+		return fmt.Errorf("add veth: %v", err)
 	}
 	handle, err := netns.GetFromPath(args.Netns)
 	if err != nil {
 		return fmt.Errorf("get netns fd: %v", err)
 	}
-	if err := netlink.LinkSetNsFd(podVeth, int(handle)); err != nil {
+	if err := netlink.LinkSetNsFd(vethpair, int(handle)); err != nil {
 		return fmt.Errorf("move pod veth to ns %d: %v", int(handle), err)
 	}
 	// TODO: attach ebpf progs
