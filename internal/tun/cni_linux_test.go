@@ -11,6 +11,11 @@ import (
 	"testing"
 )
 
+// we use github.com/vishvananda/netns library for testing instead of
+// github.com/containernetworking/plugins/pkg/ns, because it provides
+// us with the ability to create/destroy named network namespaces.
+// the other one does not provide this feature.
+
 func createNetns(t *testing.T) (netns.NsHandle, netns.NsHandle, string) {
 	// lock the OS Thread, so we don't accidentally switch namespaces
 	runtime.LockOSThread()
