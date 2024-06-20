@@ -1,6 +1,6 @@
 version: 1
 serverRoot: /opt/paper # config file has to live here
-variants:
+flavors:
   - id: base
     path: /opt/paper/mcserver # points to dir in docker image
     replicas: 2
