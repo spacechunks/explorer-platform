@@ -1,8 +1,0 @@
-name: Flash
-author: freggy
-version: ${project.version}
-main: cloud.luxor.lbwl.flash.FlashPlugin
-api-version: 1.13
-commands:
-  hub:
-    aliases: ["lobby", "l"]

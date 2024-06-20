@@ -1,9 +1,0 @@
-version: '3'
-services:
-  db:
-    image: postgres:latest
-    environment:
-      POSTGRES_PASSWORD: chunks
-      POSTGRES_USER: chunks
-    ports:
-      - 5432:5432
