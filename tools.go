@@ -1,3 +1,5 @@
+//go:build tools
+
 /*
 Explorer Platform, a platform for hosting and discovering Minecraft servers.
 Copyright (C) 2024 Yannic Rieger <oss@76k.io>
@@ -16,6 +18,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package chunks
+package tools
 
-//go:generate ./internal/image/testdata/build-img.sh
+import _ "github.com/cilium/ebpf/cmd/bpf2go"
