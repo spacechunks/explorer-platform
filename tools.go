@@ -20,4 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package tools
 
-import _ "github.com/cilium/ebpf/cmd/bpf2go"
+import (
+	_ "github.com/cilium/ebpf/cmd/bpf2go"
+	_ "github.com/vektra/mockery/v2"
+)
