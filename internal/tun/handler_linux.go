@@ -65,7 +65,7 @@ func (h *cniHandler) AttachEgressBPF(ifaceName string) error {
 	}
 	var ingObjs ingressObjects
 	if err := loadIngressObjects(&ingObjs, nil); err != nil {
-		return fmt.Errorf("load ingress objs: %w", err)
+		return fmt.Errorf("load egress objs: %w", err)
 	}
 	l, err := link.AttachTCX(link.TCXOptions{
 		Interface: iface.Index,
@@ -73,9 +73,10 @@ func (h *cniHandler) AttachEgressBPF(ifaceName string) error {
 		Attach:    ebpf.AttachTCXEgress,
 	})
 	if err != nil {
-		return fmt.Errorf("attach ingress: %w", err)
+		return fmt.Errorf("attach egress: %w", err)
 	}
-	if err := l.Pin(fmt.Sprintf("ingress_%s", ifaceName)); err != nil {
+	// pin because cni is short-lived
+	if err := l.Pin(fmt.Sprintf("egress_%s", ifaceName)); err != nil {
 		return fmt.Errorf("pin link: %w", err)
 	}
 	return nil
