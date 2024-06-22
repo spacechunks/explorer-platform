@@ -1,3 +1,2 @@
 * text=auto eol=lf
-# exclude all languages within example/ from github language overview
-example/** -linguist-detectable
+internal/tun/bpf/include/* linguist-vendored
