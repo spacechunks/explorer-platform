@@ -55,6 +55,10 @@ func NewHandler() Handler {
 }
 
 func (h *cniHandler) AttachEgressBPF(ifaceName string) error {
+	// TODO: those are ingress objects
+	//       change them to egress objects.
+	//       keep it here for now, so we
+	//       have a reference for later.
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("get iface: %w", err)
@@ -66,7 +70,7 @@ func (h *cniHandler) AttachEgressBPF(ifaceName string) error {
 	l, err := link.AttachTCX(link.TCXOptions{
 		Interface: iface.Index,
 		Program:   ingObjs.Ingress,
-		Attach:    ebpf.AttachTCXIngress,
+		Attach:    ebpf.AttachTCXEgress,
 	})
 	if err != nil {
 		return fmt.Errorf("attach ingress: %w", err)

@@ -35,6 +35,12 @@ type CNI struct {
 	handler Handler
 }
 
+func NewCNI(h Handler) *CNI {
+	return &CNI{
+		handler: h,
+	}
+}
+
 // ExecAdd sets up the veth pair for a container.
 // internally the following happens:
 // * first allocated ip address for host side veth using cni ipam plugin.
@@ -46,10 +52,6 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 	if err := json.Unmarshal(args.StdinData, &conf); err != nil {
 		return fmt.Errorf("parse network config: %v", err)
 	}
-	ips, err := c.handler.AllocIPs(conf.IPAM.Type, args.StdinData)
-	if err != nil {
-		return fmt.Errorf("alloc ips: %w", err)
-	}
 	defer func() {
 		if err != nil {
 			if err := c.handler.DeallocIPs(conf.IPAM.Type, args.StdinData); err != nil {
@@ -57,6 +59,10 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 			}
 		}
 	}()
+	ips, err := c.handler.AllocIPs(conf.IPAM.Type, args.StdinData)
+	if err != nil {
+		return fmt.Errorf("alloc ips: %w", err)
+	}
 	podVethName, err := c.handler.CreateAndConfigureVethPair(args.ContainerID, args.Netns, ips)
 	if err != nil {
 		return fmt.Errorf("configure veth pair: %w", err)
