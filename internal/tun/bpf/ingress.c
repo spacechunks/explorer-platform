@@ -69,7 +69,7 @@ static __always_inline int parse_iphdr(void **data, void *data_end, struct iphdr
     return 0;
 }
 
-
+SEC("tc")
 int ingress(struct __sk_buff *ctx)
 {
     void *data = (void *)(long)ctx->data;
