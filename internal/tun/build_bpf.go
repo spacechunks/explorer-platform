@@ -16,6 +16,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package chunks
+package tun
 
-//go:generate ./internal/image/testdata/build-img.sh
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go ingress bpf/ingress.c -- -I bpf/include

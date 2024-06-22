@@ -1,5 +1,3 @@
-//go:build linux
-
 /*
 Explorer Platform, a platform for hosting and discovering Minecraft servers.
 Copyright (C) 2024 Yannic Rieger <oss@76k.io>
@@ -18,11 +16,9 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package tun_test
+package tun
 
 import (
-	"github.com/containernetworking/cni/pkg/skel"
-	"github.com/spacechunks/platform/internal/tun"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"runtime"
@@ -33,6 +29,25 @@ import (
 // github.com/containernetworking/plugins/pkg/ns, because it provides
 // us with the ability to create/destroy named network namespaces.
 // the other one does not provide this feature.
+
+func TestCreateAndConfigureVethPair(t *testing.T) {
+	created, origin, name := createNetns(t)
+	defer created.Close()
+	defer origin.Close()
+	defer netns.DeleteNamed(name)
+	h := cniHandler{}
+	if _, err := h.CreateAndConfigureVethPair("ABC", "/var/run/netns/"+name, nil); err != nil {
+		t.Fatalf("create and configure failed: %v", err)
+	}
+	podVeth := getLinkByNS(t, "ABC", created)
+	hostVeth := getLinkByNS(t, "ABC", origin)
+	if podVeth == nil {
+		t.Fatal("pod veth not found")
+	}
+	if hostVeth == nil {
+		t.Fatal("host veth not found")
+	}
+}
 
 func createNetns(t *testing.T) (netns.NsHandle, netns.NsHandle, string) {
 	// lock the OS Thread, so we don't accidentally switch namespaces
@@ -51,28 +66,6 @@ func createNetns(t *testing.T) (netns.NsHandle, netns.NsHandle, string) {
 		t.Fatalf("set netns: %v", err)
 	}
 	return handle, origin, "test"
-}
-
-func TestAdd(t *testing.T) {
-	created, origin, name := createNetns(t)
-	defer created.Close()
-	defer origin.Close()
-	defer netns.DeleteNamed(name)
-	args := &skel.CmdArgs{
-		ContainerID: "ABC",
-		Netns:       "/var/run/netns/" + name,
-	}
-	if err := tun.CNIFuncs().Add(args); err != nil {
-		t.Fatalf("add: %v", err)
-	}
-	podVeth := getLinkByNS(t, "podABC", created)
-	hostVeth := getLinkByNS(t, "hostABC", origin)
-	if podVeth == nil {
-		t.Fatal("pod veth not found")
-	}
-	if hostVeth == nil {
-		t.Fatal("host veth not found")
-	}
 }
 
 func getLinkByNS(t *testing.T, name string, h netns.NsHandle) netlink.Link {
