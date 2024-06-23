@@ -63,7 +63,7 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 	if err != nil {
 		return fmt.Errorf("alloc ips: %w", err)
 	}
-	podVethName, err := c.handler.CreateAndConfigureVethPair(args.ContainerID, args.Netns, ips)
+	_, podVethName, err := c.handler.CreateAndConfigureVethPair(args.Netns, ips)
 	if err != nil {
 		return fmt.Errorf("configure veth pair: %w", err)
 	}

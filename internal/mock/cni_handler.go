@@ -126,32 +126,39 @@ func (_c *Handler_AttachEgressBPF_Call) RunAndReturn(run func(string) error) *Ha
 	return _c
 }
 
-// CreateAndConfigureVethPair provides a mock function with given fields: ctrID, netNS, ips
-func (_m *Handler) CreateAndConfigureVethPair(ctrID string, netNS string, ips []*types100.IPConfig) (string, error) {
-	ret := _m.Called(ctrID, netNS, ips)
+// CreateAndConfigureVethPair provides a mock function with given fields: netNS, ips
+func (_m *Handler) CreateAndConfigureVethPair(netNS string, ips []*types100.IPConfig) (string, string, error) {
+	ret := _m.Called(netNS, ips)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateAndConfigureVethPair")
 	}
 
 	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(string, string, []*types100.IPConfig) (string, error)); ok {
-		return rf(ctrID, netNS, ips)
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(string, []*types100.IPConfig) (string, string, error)); ok {
+		return rf(netNS, ips)
 	}
-	if rf, ok := ret.Get(0).(func(string, string, []*types100.IPConfig) string); ok {
-		r0 = rf(ctrID, netNS, ips)
+	if rf, ok := ret.Get(0).(func(string, []*types100.IPConfig) string); ok {
+		r0 = rf(netNS, ips)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(string, string, []*types100.IPConfig) error); ok {
-		r1 = rf(ctrID, netNS, ips)
+	if rf, ok := ret.Get(1).(func(string, []*types100.IPConfig) string); ok {
+		r1 = rf(netNS, ips)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(string)
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(string, []*types100.IPConfig) error); ok {
+		r2 = rf(netNS, ips)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // Handler_CreateAndConfigureVethPair_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateAndConfigureVethPair'
@@ -160,26 +167,25 @@ type Handler_CreateAndConfigureVethPair_Call struct {
 }
 
 // CreateAndConfigureVethPair is a helper method to define mock.On call
-//   - ctrID string
 //   - netNS string
 //   - ips []*types100.IPConfig
-func (_e *Handler_Expecter) CreateAndConfigureVethPair(ctrID interface{}, netNS interface{}, ips interface{}) *Handler_CreateAndConfigureVethPair_Call {
-	return &Handler_CreateAndConfigureVethPair_Call{Call: _e.mock.On("CreateAndConfigureVethPair", ctrID, netNS, ips)}
+func (_e *Handler_Expecter) CreateAndConfigureVethPair(netNS interface{}, ips interface{}) *Handler_CreateAndConfigureVethPair_Call {
+	return &Handler_CreateAndConfigureVethPair_Call{Call: _e.mock.On("CreateAndConfigureVethPair", netNS, ips)}
 }
 
-func (_c *Handler_CreateAndConfigureVethPair_Call) Run(run func(ctrID string, netNS string, ips []*types100.IPConfig)) *Handler_CreateAndConfigureVethPair_Call {
+func (_c *Handler_CreateAndConfigureVethPair_Call) Run(run func(netNS string, ips []*types100.IPConfig)) *Handler_CreateAndConfigureVethPair_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(string), args[2].([]*types100.IPConfig))
+		run(args[0].(string), args[1].([]*types100.IPConfig))
 	})
 	return _c
 }
 
-func (_c *Handler_CreateAndConfigureVethPair_Call) Return(_a0 string, _a1 error) *Handler_CreateAndConfigureVethPair_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *Handler_CreateAndConfigureVethPair_Call) Return(_a0 string, _a1 string, _a2 error) *Handler_CreateAndConfigureVethPair_Call {
+	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *Handler_CreateAndConfigureVethPair_Call) RunAndReturn(run func(string, string, []*types100.IPConfig) (string, error)) *Handler_CreateAndConfigureVethPair_Call {
+func (_c *Handler_CreateAndConfigureVethPair_Call) RunAndReturn(run func(string, []*types100.IPConfig) (string, string, error)) *Handler_CreateAndConfigureVethPair_Call {
 	_c.Call.Return(run)
 	return _c
 }

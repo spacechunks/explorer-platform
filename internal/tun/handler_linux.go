@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package tun
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
@@ -31,12 +32,12 @@ import (
 )
 
 const (
-	mtu    = 1400
-	ctrIP4 = "10.0.0.1/24"
+	VethMTU      = 1400
+	ContainerIP4 = "10.0.0.1/24"
 )
 
 type Handler interface {
-	CreateAndConfigureVethPair(ctrID, netNS string, ips []*current.IPConfig) (string, error)
+	CreateAndConfigureVethPair(netNS string, ips []*current.IPConfig) (string, string, error)
 	AttachEgressBPF(ifaceName string) error
 	// TODO: check if we really need to request an ip address
 	//       from ipam plugin, because our ingress bpf program will
@@ -82,23 +83,27 @@ func (h *cniHandler) AttachEgressBPF(ifaceName string) error {
 	return nil
 }
 
-func (h *cniHandler) CreateAndConfigureVethPair(ctrID, netNS string, ips []*current.IPConfig) (string, error) {
-	var (
-		hostVethName = shorten(ctrID)
-		podVethName  = shorten(ctrID)
-	)
+func (h *cniHandler) CreateAndConfigureVethPair(netNS string, ips []*current.IPConfig) (string, string, error) {
+	hostVethName, err := randHexStr()
+	if err != nil {
+		return "", "", fmt.Errorf("could not generate host-side veth name: %w", err)
+	}
+	podVethName, err := randHexStr()
+	if err != nil {
+		return "", "", fmt.Errorf("could not generate pod-side veth name: %w", err)
+	}
 	ctrNS, err := createAndMoveVethPair(hostVethName, podVethName, netNS)
 	if err != nil {
-		return "", fmt.Errorf("setup veth pair: %w", err)
+		return "", "", fmt.Errorf("setup veth pair: %w", err)
 	}
 	defer ctrNS.Close()
 	if err := configureCTRIface(ctrNS, podVethName); err != nil {
-		return "", fmt.Errorf("setup ctr side veth: %w", err)
+		return "", "", fmt.Errorf("setup ctr side veth: %w", err)
 	}
 	if err := configureHostIface(ips, hostVethName); err != nil {
-		return "", fmt.Errorf("setup host side veth: %w", err)
+		return "", "", fmt.Errorf("setup host side veth: %w", err)
 	}
-	return podVethName, nil
+	return hostVethName, podVethName, nil
 }
 
 func (h *cniHandler) AllocIPs(plugin string, stdinData []byte) ([]*current.IPConfig, error) {
@@ -123,8 +128,13 @@ func (h *cniHandler) DeallocIPs(plugin string, stdinData []byte) error {
 
 func configureCTRIface(ctrNS ns.NetNS, ifaceName string) error {
 	if err := ctrNS.Do(func(ns.NetNS) error {
-		_, ipNet, _ := net.ParseCIDR(ctrIP4)
-		return configureIface(ifaceName, ipNet)
+		ip, ipNet, _ := net.ParseCIDR(ContainerIP4)
+		// for some reason the host part is lost
+		// in the returned ipNet. 10.0.0.1/24 -> 10.0.0.0/24
+		return configureIface(ifaceName, &net.IPNet{
+			IP:   ip,
+			Mask: ipNet.Mask,
+		})
 	}); err != nil {
 		return fmt.Errorf("ctr ns: %w", err)
 	}
@@ -158,7 +168,7 @@ func createAndMoveVethPair(hostVethName, podVethName string, netNS string) (ns.N
 	vethpair := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: podVethName,
-			MTU:  mtu,
+			MTU:  VethMTU,
 		},
 		PeerName: hostVethName,
 	}
@@ -175,10 +185,11 @@ func createAndMoveVethPair(hostVethName, podVethName string, netNS string) (ns.N
 	return ctr, nil
 }
 
-// shorten shortens string to max 15 chars
-func shorten(str string) string {
-	if len(str) <= 15 {
-		return str
+func randHexStr() (string, error) {
+	bytes := make([]byte, 16) // are enough to achieve a negligible collision chance
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
 	}
-	return str[:15]
+	// return first 15 chars
+	return fmt.Sprintf("%x", bytes)[:15], nil
 }
