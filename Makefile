@@ -1,3 +1,6 @@
+WORKDIR := work
+CNI_PLUGINS := $(WORKDIR)/plugins
+
 .PHONY: setup
 setup:
 	apt update
@@ -10,3 +13,16 @@ vmlinux:
 .PHONY: gogen_all
 gogen_all:
 	go generate ./...
+
+export CNI_PATH=$(CNI_PLUGINS)
+
+.PHONY: functests
+functests: $(CNI_PLUGINS)
+	go test ./test/functional/...
+
+$(CNI_PLUGINS): $(WORKDIR)
+	git clone git@github.com:containernetworking/plugins.git $(WORKDIR)
+	$(WORKDIR)/build_linux.sh
+
+$(WORKDIR):
+	mkdir $(WORKDIR)
