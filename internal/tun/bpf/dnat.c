@@ -25,7 +25,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #define TCP_DPORT_OFF (ETH_HLEN + sizeof(struct iphdr) + offsetof(struct tcphdr, dest))
 #define IP_DST_OFF (ETH_HLEN + offsetof(struct iphdr, daddr))
-#define BPF_F_PSEUDO_HDR 0x10
+
+struct dnat_target {
+    __le32 ip_addr; /* host network order */
+    __u8 iface_idx;
+    __u8 mac_addr[ETH_ALEN];
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __le16); /* host network order */
+    __type(value, struct dnat_target);
+    __uint(max_entries, 256); /* TODO: determine sane value */
+} dnat_targets SEC(".maps");
 
 SEC("tc")
 int dnat(struct __sk_buff *ctx)
@@ -36,35 +48,32 @@ int dnat(struct __sk_buff *ctx)
     if (ctx->protocol != bpf_htons(ETH_P_IP))
         return TC_ACT_OK;
 
-    __be16 port;
-    bpf_skb_load_bytes(ctx, TCP_DPORT_OFF, &port, sizeof(__be16));
+    __be16 nport;
+    bpf_skb_load_bytes(ctx, TCP_DPORT_OFF, &nport, sizeof(__be16));
 
-    if (bpf_htons(port) != 25565) {
+    __le16 hport = bpf_ntohs(nport);
+    struct dnat_target *tgt = bpf_map_lookup_elem(&dnat_targets, &hport);
+
+    if (tgt == NULL) {
+        bpf_printk("no dnat target for port %d", hport);
         return TC_ACT_OK;
     }
 
-    /* d6:35:fc:1e:56:15 */
-    u8 dest_mac[] = {
-        214, 53, 252, 30, 86, 21
-    };
-
-   struct ethhdr *ethh;
-   if (data + sizeof(struct ethhdr) > data_end) {
+    struct ethhdr *ethh;
+    if (parse_ethhdr(&data, data_end, &ethh))
         return TC_ACT_OK;
-   }
 
-    ethh = data;
+    __builtin_memcpy(ethh->h_dest, tgt->mac_addr, ETH_ALEN);
 
-    __builtin_memcpy(ethh->h_dest, dest_mac, ETH_ALEN);
-    __be32 dst = bpf_htonl(0xa000001);
-    __u32 prev_dst;
+    __be32 dst = bpf_htonl(tgt->ip_addr);
+    __be32 prev_dst;
 
-    bpf_skb_load_bytes(ctx, IP_DST_OFF, &prev_dst, 4);
-    bpf_skb_store_bytes(ctx, IP_DST_OFF, &new_ip, sizeof(dst), 0);
+    bpf_skb_load_bytes(ctx, IP_DST_OFF, &prev_dst, IP_ADDR_LEN);
+    bpf_skb_store_bytes(ctx, IP_DST_OFF, &dst, sizeof(dst), 0);
     bpf_l3_csum_replace(ctx, IP_CSUM_OFF, prev_dst, dst, sizeof(dst));
     bpf_l4_csum_replace(ctx, TCP_CSUM_OFF, prev_dst, dst,  BPF_F_PSEUDO_HDR | sizeof(dst));
 
-    return bpf_redirect_peer(4, 0);
+    return bpf_redirect_peer(tgt->iface_idx, 0);
 }
 
 char _license[] SEC("license") = "GPL";
