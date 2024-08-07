@@ -58,8 +58,8 @@ func TestCNIAdd(t *testing.T) {
 					AllocIPs("host-local", args.StdinData).
 					Return(ips, nil)
 				h.EXPECT().
-					CreateAndConfigureVethPair(args.ContainerID, args.Netns, ips).
-					Return("veth", nil)
+					CreateAndConfigureVethPair(args.Netns, ips).
+					Return("veth", "veth", nil)
 				h.EXPECT().
 					AttachEgressBPF("veth").
 					Return(nil)

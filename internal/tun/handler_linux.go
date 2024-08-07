@@ -38,7 +38,7 @@ const (
 
 type Handler interface {
 	CreateAndConfigureVethPair(netNS string, ips []*current.IPConfig) (string, string, error)
-	AttachEgressBPF(ifaceName string) error
+	AttachSNATBPF(ifaceName string) error
 	// TODO: check if we really need to request an ip address
 	//       from ipam plugin, because our ingress bpf program will
 	//       take care of redirecting the packet to the correct iface.
@@ -46,6 +46,8 @@ type Handler interface {
 	//       ip configured (tm).
 	AllocIPs(plugin string, stdinData []byte) ([]*current.IPConfig, error)
 	DeallocIPs(plugin string, stdinData []byte) error
+	AttachDNATBPF(ifaceName string) error
+	ConfigureSNAT(mapPin string) error
 }
 
 type cniHandler struct {
@@ -55,7 +57,7 @@ func NewHandler() Handler {
 	return &cniHandler{}
 }
 
-func (h *cniHandler) AttachEgressBPF(ifaceName string) error {
+func (h *cniHandler) AttachSNATBPF(ifaceName string) error {
 	// TODO: those are ingress objects
 	//       change them to egress objects.
 	//       keep it here for now, so we
@@ -64,20 +66,20 @@ func (h *cniHandler) AttachEgressBPF(ifaceName string) error {
 	if err != nil {
 		return fmt.Errorf("get iface: %w", err)
 	}
-	var ingObjs ingressObjects
-	if err := loadIngressObjects(&ingObjs, nil); err != nil {
-		return fmt.Errorf("load egress objs: %w", err)
+	var snatObjs snatObjects
+	if err := loadSnatObjects(&snatObjs, nil); err != nil {
+		return fmt.Errorf("load snat objs: %w", err)
 	}
 	l, err := link.AttachTCX(link.TCXOptions{
 		Interface: iface.Index,
-		Program:   ingObjs.Ingress,
-		Attach:    ebpf.AttachTCXEgress,
+		Program:   snatObjs.Snat,
+		Attach:    ebpf.AttachTCXIngress,
 	})
 	if err != nil {
-		return fmt.Errorf("attach egress: %w", err)
+		return fmt.Errorf("attach snat: %w", err)
 	}
 	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("egress_%s", ifaceName)); err != nil {
+	if err := l.Pin(fmt.Sprintf("snat_%s", ifaceName)); err != nil {
 		return fmt.Errorf("pin link: %w", err)
 	}
 	return nil
@@ -124,6 +126,21 @@ func (h *cniHandler) AllocIPs(plugin string, stdinData []byte) ([]*current.IPCon
 
 func (h *cniHandler) DeallocIPs(plugin string, stdinData []byte) error {
 	return ipam.ExecDel(plugin, stdinData)
+}
+
+func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return fmt.Errorf("get iface: %w", err)
+	}
+	// TODO: if link is already present just update
+}
+
+func (h *cniHandler) ConfigureSNAT(mapPing string) error {
+	// TODO: put snat config into ebpf map
+	//       if map is not present -> add and pin
+	//       if map is present -> reuse
+	return nil
 }
 
 func configureCTRIface(ctrNS ns.NetNS, ifaceName string) error {

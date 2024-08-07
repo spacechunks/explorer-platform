@@ -19,11 +19,48 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"flag"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
+	ff "github.com/peterbourgon/ff/v3"
 	"github.com/spacechunks/platform/internal/tun"
+	"log"
+	"os"
 )
 
 func main() {
-	skel.PluginMainFuncs(tun.CNIFuncs(), version.All, "TODO")
+	fs := flag.NewFlagSet("cni", flag.ContinueOnError)
+	var (
+		mainIface = fs.String("host-iface", "eth0", "network interface where packets from users will arrive on")
+		snatMap   = fs.String("snat-map-pin", "", "path to where snat bpf map has been pinned to")
+	)
+	if err := ff.Parse(fs, os.Args[1:],
+		ff.WithEnvVarPrefix("PTPNAT"),
+		ff.WithConfigFileParser(ff.PlainParser),
+	); err != nil {
+		log.Fatalf("failed to parse flags: %v", err)
+	}
+	var (
+		handler = tun.NewHandler()
+		cni     = tun.NewCNI(handler)
+	)
+	if *mainIface != "" {
+		log.Fatalf("main interface not specified")
+	}
+	if *snatMap != "" {
+		log.Fatalf("main interface not specified")
+	}
+	if err := handler.ConfigureSNAT(*snatMap); err != nil {
+		log.Fatalf("failed to configure snat: %v", err)
+	}
+	if err := handler.AttachDNATBPF(*mainIface); err != nil {
+		log.Fatalf("failed to attach dnat bpf to %s: %v", *mainIface, err)
+	}
+	skel.PluginMainFuncs(skel.CNIFuncs{
+		Add:    cni.ExecAdd,
+		Del:    cni.ExecDel,
+		Check:  nil,
+		GC:     nil,
+		Status: nil,
+	}, version.All, "TODO")
 }
