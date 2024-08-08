@@ -47,6 +47,7 @@ func NewCNI(h Handler) *CNI {
 // * then create veth pair and move one peer into the containers netns.
 // * configure ip address on container iface and bring it up.
 // * configure ip address on host iface and bring it up.
+// * attach snat bpf program to host-side veth peer (tc ingress)
 func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 	var conf Conf
 	if err := json.Unmarshal(args.StdinData, &conf); err != nil {
@@ -67,8 +68,8 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 	if err != nil {
 		return fmt.Errorf("configure veth pair: %w", err)
 	}
-	if err := c.handler.AttachEgressBPF(podVethName); err != nil {
-		return fmt.Errorf("attach egress: %w", err)
+	if err := c.handler.AttachSNATBPF(podVethName); err != nil {
+		return fmt.Errorf("attach snat: %w", err)
 	}
 	return nil
 }

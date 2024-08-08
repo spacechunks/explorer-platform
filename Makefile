@@ -16,6 +16,11 @@ gogen_all:
 
 export CNI_PATH=$(CNI_PLUGINS)
 
+
+.PHONY: nodedev
+nodedev:
+	./nodedev/up.sh
+
 .PHONY: functests
 functests: $(CNI_PLUGINS)
 	go test ./test/functional/...

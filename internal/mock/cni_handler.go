@@ -81,11 +81,11 @@ func (_c *Handler_AllocIPs_Call) RunAndReturn(run func(string, []byte) ([]*types
 }
 
 // AttachEgressBPF provides a mock function with given fields: ifaceName
-func (_m *Handler) AttachEgressBPF(ifaceName string) error {
+func (_m *Handler) AttachSNATBPF(ifaceName string) error {
 	ret := _m.Called(ifaceName)
 
 	if len(ret) == 0 {
-		panic("no return value specified for AttachEgressBPF")
+		panic("no return value specified for AttachSNATBPF")
 	}
 
 	var r0 error
@@ -98,7 +98,7 @@ func (_m *Handler) AttachEgressBPF(ifaceName string) error {
 	return r0
 }
 
-// Handler_AttachEgressBPF_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachEgressBPF'
+// Handler_AttachEgressBPF_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachSNATBPF'
 type Handler_AttachEgressBPF_Call struct {
 	*mock.Call
 }
@@ -106,7 +106,7 @@ type Handler_AttachEgressBPF_Call struct {
 // AttachEgressBPF is a helper method to define mock.On call
 //   - ifaceName string
 func (_e *Handler_Expecter) AttachEgressBPF(ifaceName interface{}) *Handler_AttachEgressBPF_Call {
-	return &Handler_AttachEgressBPF_Call{Call: _e.mock.On("AttachEgressBPF", ifaceName)}
+	return &Handler_AttachEgressBPF_Call{Call: _e.mock.On("AttachSNATBPF", ifaceName)}
 }
 
 func (_c *Handler_AttachEgressBPF_Call) Run(run func(ifaceName string)) *Handler_AttachEgressBPF_Call {
