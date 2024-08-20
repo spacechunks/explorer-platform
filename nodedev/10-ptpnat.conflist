@@ -1,6 +1,6 @@
 {
   "cniVersion": "1.0.0",
-  "name": "ptpnat-nodedev",
+  "name": "ptpnat",
   "plugins": [
     {
       "type": "ptpnat",

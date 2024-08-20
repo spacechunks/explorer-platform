@@ -56,6 +56,11 @@ cd -
 mkdir -p /opt/cni
 cp -r plugins/bin /opt/cni
 ls /opt/cni
+cp ptpnat /opt/cni/bin/ptpnat
+
+# install ptpnat
+# TODO: copy ptpnat binray
+cp /root/10-ptpnat.conflist /top
 
 # crictl
 VERSION=v1.30.1 # check latest version in /releases page
