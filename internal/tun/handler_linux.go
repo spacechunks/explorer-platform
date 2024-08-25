@@ -31,6 +31,8 @@ import (
 	"net"
 )
 
+// just for reference: _ctr_ is short for _container_
+
 const (
 	VethMTU      = 1400
 	ContainerIP4 = "10.0.0.1/24"
@@ -58,18 +60,16 @@ func NewHandler() Handler {
 }
 
 func (h *cniHandler) AttachSNATBPF(ifaceName string) error {
-	// TODO: those are ingress objects
-	//       change them to egress objects.
-	//       keep it here for now, so we
-	//       have a reference for later.
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("get iface: %w", err)
 	}
+
 	var snatObjs snatObjects
 	if err := loadSnatObjects(&snatObjs, nil); err != nil {
 		return fmt.Errorf("load snat objs: %w", err)
 	}
+
 	l, err := link.AttachTCX(link.TCXOptions{
 		Interface: iface.Index,
 		Program:   snatObjs.Snat,
@@ -78,10 +78,12 @@ func (h *cniHandler) AttachSNATBPF(ifaceName string) error {
 	if err != nil {
 		return fmt.Errorf("attach snat: %w", err)
 	}
+
 	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("snat_%s", ifaceName)); err != nil {
+	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/snat_%s", ifaceName)); err != nil {
 		return fmt.Errorf("pin link: %w", err)
 	}
+
 	return nil
 }
 
@@ -90,21 +92,27 @@ func (h *cniHandler) CreateAndConfigureVethPair(netNS string, ips []*current.IPC
 	if err != nil {
 		return "", "", fmt.Errorf("could not generate host-side veth name: %w", err)
 	}
+
 	podVethName, err := randHexStr()
 	if err != nil {
 		return "", "", fmt.Errorf("could not generate pod-side veth name: %w", err)
 	}
+
 	ctrNS, err := createAndMoveVethPair(hostVethName, podVethName, netNS)
 	if err != nil {
 		return "", "", fmt.Errorf("setup veth pair: %w", err)
 	}
+
 	defer ctrNS.Close()
+
 	if err := configureCTRIface(ctrNS, podVethName); err != nil {
 		return "", "", fmt.Errorf("setup ctr side veth: %w", err)
 	}
+
 	if err := configureHostIface(ips, hostVethName); err != nil {
 		return "", "", fmt.Errorf("setup host side veth: %w", err)
 	}
+
 	return hostVethName, podVethName, nil
 }
 
@@ -113,14 +121,17 @@ func (h *cniHandler) AllocIPs(plugin string, stdinData []byte) ([]*current.IPCon
 	if err != nil {
 		return nil, fmt.Errorf("ipam: %v", err)
 	}
+
 	// convert ipam result into the current versions result type
 	result, err := current.NewResultFromResult(ipamRes)
 	if err != nil {
 		return nil, fmt.Errorf("convert ipam result: %v", err)
 	}
+
 	if len(result.IPs) == 0 {
 		return nil, errors.New("ipam plugin returned missing IPs")
 	}
+
 	return result.IPs, nil
 }
 
@@ -133,10 +144,31 @@ func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
 	if err != nil {
 		return fmt.Errorf("get iface: %w", err)
 	}
+
+	var dnatObjs dnatObjects
+	if err := loadDnatObjects(&dnatObjs, nil); err != nil {
+		return fmt.Errorf("load dnat objs: %w", err)
+	}
+
 	// TODO: if link is already present just update
+	l, err := link.AttachTCX(link.TCXOptions{
+		Interface: iface.Index,
+		Program:   dnatObjs.Dnat,
+		Attach:    ebpf.AttachTCXIngress,
+	})
+	if err != nil {
+		return fmt.Errorf("attach dnat: %w", err)
+	}
+
+	// pin because cni is short-lived
+	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/dnat_%s", ifaceName)); err != nil {
+		return fmt.Errorf("pin link: %w", err)
+	}
+
+	return nil
 }
 
-func (h *cniHandler) ConfigureSNAT(mapPing string) error {
+func (h *cniHandler) ConfigureSNAT(mapPin string) error {
 	// TODO: put snat config into ebpf map
 	//       if map is not present -> add and pin
 	//       if map is present -> reuse
@@ -147,7 +179,7 @@ func configureCTRIface(ctrNS ns.NetNS, ifaceName string) error {
 	if err := ctrNS.Do(func(ns.NetNS) error {
 		ip, ipNet, _ := net.ParseCIDR(ContainerIP4)
 		// for some reason the host part is lost
-		// in the returned ipNet. 10.0.0.1/24 -> 10.0.0.0/24
+		// in ipNet. 10.0.0.1/24 -> 10.0.0.0/24
 		return configureIface(ifaceName, &net.IPNet{
 			IP:   ip,
 			Mask: ipNet.Mask,
@@ -172,16 +204,19 @@ func configureIface(ifaceName string, ipNet *net.IPNet) error {
 	if err != nil {
 		return fmt.Errorf("lookup link: %w", err)
 	}
+
 	if err := netlink.AddrAdd(l, &netlink.Addr{IPNet: ipNet}); err != nil {
 		return fmt.Errorf("add addr: %w", err)
 	}
+
 	if err := netlink.LinkSetUp(l); err != nil {
 		return fmt.Errorf("link up: %w", err)
 	}
+
 	return nil
 }
 
-func createAndMoveVethPair(hostVethName, podVethName string, netNS string) (ns.NetNS, error) {
+func createAndMoveVethPair(hostVethName, podVethName, netNS string) (ns.NetNS, error) {
 	vethpair := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: podVethName,
@@ -189,16 +224,20 @@ func createAndMoveVethPair(hostVethName, podVethName string, netNS string) (ns.N
 		},
 		PeerName: hostVethName,
 	}
+
 	if err := netlink.LinkAdd(vethpair); err != nil {
 		return nil, fmt.Errorf("add veth: %w", err)
 	}
+
 	ctr, err := ns.GetNS(netNS)
 	if err != nil {
 		return nil, fmt.Errorf("get netns fd: %w", err)
 	}
+
 	if err := netlink.LinkSetNsFd(vethpair, int(ctr.Fd())); err != nil {
 		return nil, fmt.Errorf("move pod veth to ns %d: %w", ctr, err)
 	}
+
 	return ctr, nil
 }
 
@@ -207,6 +246,7 @@ func randHexStr() (string, error) {
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
+
 	// return first 15 chars
 	return fmt.Sprintf("%x", bytes)[:15], nil
 }

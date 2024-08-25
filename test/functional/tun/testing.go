@@ -55,7 +55,7 @@ func GetLinkByNS(t *testing.T, name string, h netns.NsHandle) netlink.Link {
 	return l
 }
 
-func AssertAddrConfigured(t *testing.T, ifaceName, expectedAddr string) {
+func RequireAddrConfigured(t *testing.T, ifaceName, expectedAddr string) {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		t.Fatalf("get iface by name (%s): %v", ifaceName, err)

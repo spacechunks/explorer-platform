@@ -53,6 +53,11 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 	if err := json.Unmarshal(args.StdinData, &conf); err != nil {
 		return fmt.Errorf("parse network config: %v", err)
 	}
+
+	if conf.IPAM == (types.IPAM{}) {
+		return fmt.Errorf("no IPAM configuration")
+	}
+
 	defer func() {
 		if err != nil {
 			if err := c.handler.DeallocIPs(conf.IPAM.Type, args.StdinData); err != nil {
@@ -60,17 +65,21 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 			}
 		}
 	}()
+
 	ips, err := c.handler.AllocIPs(conf.IPAM.Type, args.StdinData)
 	if err != nil {
 		return fmt.Errorf("alloc ips: %w", err)
 	}
+
 	_, podVethName, err := c.handler.CreateAndConfigureVethPair(args.Netns, ips)
 	if err != nil {
 		return fmt.Errorf("configure veth pair: %w", err)
 	}
+
 	if err := c.handler.AttachSNATBPF(podVethName); err != nil {
 		return fmt.Errorf("attach snat: %w", err)
 	}
+
 	return nil
 }
 

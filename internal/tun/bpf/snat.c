@@ -31,8 +31,8 @@ struct snat_config_entry {
 };
 
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __le16); /* host network order */
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u8);
     __type(value, struct snat_config_entry);
     __uint(max_entries, 1);
 } snat_config SEC(".maps");
