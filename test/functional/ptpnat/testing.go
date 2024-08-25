@@ -21,8 +21,10 @@ package ptpnat
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	"log"
 	"net"
 	"os"
 	"runtime"
@@ -43,11 +45,7 @@ func CreateNetns(t *testing.T) (netns.NsHandle, netns.NsHandle, string) {
 	defer runtime.UnlockOSThread()
 	// generate random netns name to avoid collisions
 	// when running multiple tests at once.
-	bytes := make([]byte, 4)
-	if _, err := rand.Read(bytes); err != nil {
-		t.Fatalf("failed reading random bytes: %v", err)
-	}
-	name := fmt.Sprintf("%x", bytes)
+	name := RandHexStr(t)
 	origin, err := netns.Get()
 	if err != nil {
 		t.Fatalf("create netns: %v", err)
@@ -71,6 +69,32 @@ func GetLinkByNS(t *testing.T, name string, h netns.NsHandle) netlink.Link {
 		t.Fatalf("get link by name (%s): %v", name, err)
 	}
 	return l
+}
+
+func RandHexStr(t *testing.T) string {
+	bytes := make([]byte, 4)
+	if _, err := rand.Read(bytes); err != nil {
+		t.Fatalf("failed reading random bytes: %v", err)
+	}
+	return fmt.Sprintf("%x", bytes)
+}
+
+// AddRandVethPair adds a veth pair with a random name.
+// This is mostly used for tests where a dummy network
+// interface is needed.
+func AddRandVethPair(t *testing.T) (string, netlink.Link) {
+	var (
+		ifaceName = RandHexStr(t)
+		vethpair  = &netlink.Veth{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: ifaceName,
+			},
+			PeerName: ifaceName + "-p",
+		}
+	)
+	log.Println(ifaceName)
+	require.NoError(t, netlink.LinkAdd(vethpair))
+	return ifaceName, vethpair
 }
 
 func RequireAddrConfigured(t *testing.T, ifaceName, expectedAddr string) {
