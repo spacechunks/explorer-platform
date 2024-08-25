@@ -32,7 +32,7 @@ import (
 	current "github.com/containernetworking/cni/pkg/types/100"
 )
 
-func TestCNIAdd(t *testing.T) {
+func TestExecAdd(t *testing.T) {
 	tests := []struct {
 		name string
 		prep func(*mock.Handler, *skel.CmdArgs)
@@ -44,7 +44,7 @@ func TestCNIAdd(t *testing.T) {
 			args: &skel.CmdArgs{
 				ContainerID: "abc",
 				Netns:       "/path/to/netns",
-				StdinData:   []byte(`{"ipam":{"type": "host-local"}}`),
+				StdinData:   []byte(`{"ipam":{"type":"host-local"}}`),
 			},
 			prep: func(h *mock.Handler, args *skel.CmdArgs) {
 				ips := []*current.IPConfig{
@@ -61,14 +61,14 @@ func TestCNIAdd(t *testing.T) {
 					CreateAndConfigureVethPair(args.Netns, ips).
 					Return("veth", "veth", nil)
 				h.EXPECT().
-					AttachEgressBPF("veth").
+					AttachSNATBPF("veth").
 					Return(nil)
 			},
 		},
 		{
 			name: "dealloc ips on error",
 			args: &skel.CmdArgs{
-				StdinData: []byte(`{"ipam":{"type": "host-local"}}`),
+				StdinData: []byte(`{"ipam":{"type":"host-local"}}`),
 			},
 			err: "alloc ips: some error",
 			prep: func(h *mock.Handler, args *skel.CmdArgs) {

@@ -25,7 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #define IP_SRC_OFF (ETH_HLEN + offsetof(struct iphdr, saddr))
 
-struct snat_config_entry {
+struct ptp_snat_entry {
     __le32 ip_addr;
     __u8 iface_idx;
 };
@@ -33,9 +33,10 @@ struct snat_config_entry {
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, __u8);
-    __type(value, struct snat_config_entry);
+    __type(value, struct ptp_snat_entry);
     __uint(max_entries, 1);
-} snat_config SEC(".maps");
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+} ptp_snat_config SEC(".maps");
 
 SEC("tc")
 int snat(struct __sk_buff *ctx)
@@ -47,7 +48,7 @@ int snat(struct __sk_buff *ctx)
         return TC_ACT_OK;
 
     __u8 idx = 0;
-    struct snat_config_entry *entry = bpf_map_lookup_elem(&snat_config, &idx);
+    struct ptp_snat_entry *entry = bpf_map_lookup_elem(&ptp_snat_config, &idx);
     if (entry == NULL) {
         bpf_printk("no snat config entry found");
         return TC_ACT_OK;

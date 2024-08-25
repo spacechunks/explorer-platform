@@ -20,6 +20,7 @@ package ptpnat
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
@@ -29,6 +30,7 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 	"net"
+	"net/netip"
 )
 
 // just for reference: _ctr_ is short for _container_
@@ -49,7 +51,7 @@ type Handler interface {
 	AllocIPs(plugin string, stdinData []byte) ([]*current.IPConfig, error)
 	DeallocIPs(plugin string, stdinData []byte) error
 	AttachDNATBPF(ifaceName string) error
-	ConfigureSNAT(mapPin string) error
+	ConfigureSNAT(iface *net.Interface) error
 }
 
 type cniHandler struct {
@@ -65,14 +67,18 @@ func (h *cniHandler) AttachSNATBPF(ifaceName string) error {
 		return fmt.Errorf("get iface: %w", err)
 	}
 
-	var snatObjs snatObjects
-	if err := loadSnatObjects(&snatObjs, nil); err != nil {
+	var snatProgs snatPrograms
+	if err := loadSnatObjects(&snatProgs, &ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{
+			PinPath: "/sys/fs/bpf",
+		},
+	}); err != nil {
 		return fmt.Errorf("load snat objs: %w", err)
 	}
 
 	l, err := link.AttachTCX(link.TCXOptions{
 		Interface: iface.Index,
-		Program:   snatObjs.Snat,
+		Program:   snatProgs.Snat,
 		Attach:    ebpf.AttachTCXIngress,
 	})
 	if err != nil {
@@ -80,7 +86,7 @@ func (h *cniHandler) AttachSNATBPF(ifaceName string) error {
 	}
 
 	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/snat_%s", ifaceName)); err != nil {
+	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/ptp_snat_%s", ifaceName)); err != nil {
 		return fmt.Errorf("pin link: %w", err)
 	}
 
@@ -161,17 +167,45 @@ func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
 	}
 
 	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/dnat_%s", ifaceName)); err != nil {
+	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/ptp_dnat_%s", ifaceName)); err != nil {
 		return fmt.Errorf("pin link: %w", err)
 	}
 
 	return nil
 }
 
-func (h *cniHandler) ConfigureSNAT(mapPin string) error {
-	// TODO: put snat config into ebpf map
-	//       if map is not present -> add and pin
-	//       if map is present -> reuse
+func (h *cniHandler) ConfigureSNAT(iface *net.Interface) error {
+	var maps snatMaps
+	if err := loadSnatObjects(&maps, &ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{
+			PinPath: "/sys/fs/bpf",
+		},
+	}); err != nil {
+		return fmt.Errorf("load snat maps: %w", err)
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return fmt.Errorf("get iface addrs: %w", err)
+	}
+
+	if len(addrs) == 0 {
+		return errors.New("no addresses configured")
+	}
+
+	prefix, err := netip.ParsePrefix(addrs[0].String())
+	if err != nil {
+		return fmt.Errorf("parse addr: %w", err)
+	}
+
+	sl := prefix.Addr().As4()
+	if err := maps.PtpSnatConfig.Put(uint8(0), snatPtpSnatEntry{
+		IpAddr:   binary.LittleEndian.Uint32(sl[:]), // host byte order is little endian
+		IfaceIdx: 3,
+	}); err != nil {
+		return fmt.Errorf("put config: %w", err)
+	}
+
 	return nil
 }
 

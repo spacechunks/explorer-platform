@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type snatSnatConfigEntry struct {
+type snatPtpSnatEntry struct {
 	IpAddr   uint32
 	IfaceIdx uint8
 	_        [3]byte
@@ -66,7 +66,7 @@ type snatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type snatMapSpecs struct {
-	SnatConfig *ebpf.MapSpec `ebpf:"snat_config"`
+	PtpSnatConfig *ebpf.MapSpec `ebpf:"ptp_snat_config"`
 }
 
 // snatObjects contains all objects after they have been loaded into the kernel.
@@ -88,12 +88,12 @@ func (o *snatObjects) Close() error {
 //
 // It can be passed to loadSnatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type snatMaps struct {
-	SnatConfig *ebpf.Map `ebpf:"snat_config"`
+	PtpSnatConfig *ebpf.Map `ebpf:"ptp_snat_config"`
 }
 
 func (m *snatMaps) Close() error {
 	return _SnatClose(
-		m.SnatConfig,
+		m.PtpSnatConfig,
 	)
 }
 

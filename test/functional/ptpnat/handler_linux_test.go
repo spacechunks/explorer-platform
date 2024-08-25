@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package ptpnat_test
 
 import (
-	"fmt"
+	"errors"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	"net"
 	"testing"
 )
 
@@ -53,6 +54,8 @@ var stdinData = []byte(`
   }
 }
 `)
+
+// TODO: remove below code and instead write functional test for cni.go
 
 // TestSetup tests that ip addresses cloud be allocated
 // and configured on the veth-pairs.
@@ -124,29 +127,15 @@ func TestBPFAttach(t *testing.T) {
 		},
 	}
 
-	// use for different iface names
-	count := 0
-
 	for _, tt := range tests {
-		count++
 		t.Run(tt.name, func(t *testing.T) {
-			var (
-				ifaceName = fmt.Sprintf("functestveth%d", count)
-				vethpair  = &netlink.Veth{
-					LinkAttrs: netlink.LinkAttrs{
-						Name: ifaceName,
-					},
-					PeerName: ifaceName + "-p",
-				}
-			)
-
-			require.NoError(t, netlink.LinkAdd(vethpair))
-			defer netlink.LinkDel(vethpair)
+			ifaceName, veth := ptptesting.AddRandVethPair(t)
+			defer netlink.LinkDel(veth)
 
 			h := ptpnat.NewHandler()
 			tt.attach(t, h, ifaceName)
 
-			l, err := link.LoadPinnedLink("/sys/fs/bpf/"+tt.pinPrefix+ifaceName, &ebpf.LoadPinOptions{})
+			l, err := link.LoadPinnedLink("/sys/fs/bpf/ptp_"+tt.pinPrefix+ifaceName, &ebpf.LoadPinOptions{})
 			require.NoError(t, err)
 
 			defer l.Unpin()
@@ -155,6 +144,74 @@ func TestBPFAttach(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Equal(t, tt.expectedAttachType, uint32(info.TCX().AttachType))
+		})
+	}
+}
+
+func TestConfigureSNAT(t *testing.T) {
+	tests := []struct {
+		name string
+		prep func(*testing.T, netlink.Link)
+		err  error
+	}{
+		{
+			name: "works",
+			prep: func(t *testing.T, veth netlink.Link) {
+				require.NoError(t, netlink.AddrAdd(veth, &netlink.Addr{
+					IPNet: &net.IPNet{
+						IP:   net.ParseIP("10.0.0.1"),
+						Mask: []byte{255, 255, 255, 0},
+					},
+				}))
+			},
+		},
+		{
+			name: "no addresses configured",
+			prep: func(t *testing.T, veth netlink.Link) {},
+			err:  errors.New("no addresses configured"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var (
+				h               = ptpnat.NewHandler()
+				ifaceName, veth = ptptesting.AddRandVethPair(t)
+			)
+
+			tt.prep(t, veth)
+			defer netlink.LinkDel(veth)
+
+			iface, err := net.InterfaceByName(ifaceName)
+			require.NoError(t, err)
+
+			if tt.err != nil {
+				require.EqualError(t, h.ConfigureSNAT(iface), tt.err.Error())
+				return
+			}
+
+			require.NoError(t, h.ConfigureSNAT(iface))
+
+			conf, err := ebpf.LoadPinnedMap("/sys/fs/bpf/ptp_snat_config", nil)
+			require.NoError(t, err)
+
+			defer conf.Unpin()
+
+			type ptpSnatEntry struct {
+				IpAddr   uint32
+				IfaceIdx uint8
+				_        [3]byte
+			}
+
+			expected := ptpSnatEntry{
+				IpAddr:   16777226, // 10.0.0.1 in little endian decimal
+				IfaceIdx: 3,
+			}
+
+			var actual ptpSnatEntry
+			require.NoError(t, conf.Lookup(uint8(0), &actual))
+
+			require.Equal(t, expected, actual)
 		})
 	}
 }
