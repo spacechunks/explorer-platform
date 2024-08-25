@@ -80,12 +80,12 @@ func (_c *Handler_AllocIPs_Call) RunAndReturn(run func(string, []byte) ([]*types
 	return _c
 }
 
-// AttachEgressBPF provides a mock function with given fields: ifaceName
-func (_m *Handler) AttachEgressBPF(ifaceName string) error {
+// AttachDNATBPF provides a mock function with given fields: ifaceName
+func (_m *Handler) AttachDNATBPF(ifaceName string) error {
 	ret := _m.Called(ifaceName)
 
 	if len(ret) == 0 {
-		panic("no return value specified for AttachEgressBPF")
+		panic("no return value specified for AttachDNATBPF")
 	}
 
 	var r0 error
@@ -98,30 +98,122 @@ func (_m *Handler) AttachEgressBPF(ifaceName string) error {
 	return r0
 }
 
-// Handler_AttachEgressBPF_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachEgressBPF'
-type Handler_AttachEgressBPF_Call struct {
+// Handler_AttachDNATBPF_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachDNATBPF'
+type Handler_AttachDNATBPF_Call struct {
 	*mock.Call
 }
 
-// AttachEgressBPF is a helper method to define mock.On call
+// AttachDNATBPF is a helper method to define mock.On call
 //   - ifaceName string
-func (_e *Handler_Expecter) AttachEgressBPF(ifaceName interface{}) *Handler_AttachEgressBPF_Call {
-	return &Handler_AttachEgressBPF_Call{Call: _e.mock.On("AttachEgressBPF", ifaceName)}
+func (_e *Handler_Expecter) AttachDNATBPF(ifaceName interface{}) *Handler_AttachDNATBPF_Call {
+	return &Handler_AttachDNATBPF_Call{Call: _e.mock.On("AttachDNATBPF", ifaceName)}
 }
 
-func (_c *Handler_AttachEgressBPF_Call) Run(run func(ifaceName string)) *Handler_AttachEgressBPF_Call {
+func (_c *Handler_AttachDNATBPF_Call) Run(run func(ifaceName string)) *Handler_AttachDNATBPF_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *Handler_AttachEgressBPF_Call) Return(_a0 error) *Handler_AttachEgressBPF_Call {
+func (_c *Handler_AttachDNATBPF_Call) Return(_a0 error) *Handler_AttachDNATBPF_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Handler_AttachEgressBPF_Call) RunAndReturn(run func(string) error) *Handler_AttachEgressBPF_Call {
+func (_c *Handler_AttachDNATBPF_Call) RunAndReturn(run func(string) error) *Handler_AttachDNATBPF_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// AttachSNATBPF provides a mock function with given fields: ifaceName
+func (_m *Handler) AttachSNATBPF(ifaceName string) error {
+	ret := _m.Called(ifaceName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AttachSNATBPF")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(ifaceName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Handler_AttachSNATBPF_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachSNATBPF'
+type Handler_AttachSNATBPF_Call struct {
+	*mock.Call
+}
+
+// AttachSNATBPF is a helper method to define mock.On call
+//   - ifaceName string
+func (_e *Handler_Expecter) AttachSNATBPF(ifaceName interface{}) *Handler_AttachSNATBPF_Call {
+	return &Handler_AttachSNATBPF_Call{Call: _e.mock.On("AttachSNATBPF", ifaceName)}
+}
+
+func (_c *Handler_AttachSNATBPF_Call) Run(run func(ifaceName string)) *Handler_AttachSNATBPF_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *Handler_AttachSNATBPF_Call) Return(_a0 error) *Handler_AttachSNATBPF_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Handler_AttachSNATBPF_Call) RunAndReturn(run func(string) error) *Handler_AttachSNATBPF_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ConfigureSNAT provides a mock function with given fields: mapPin
+func (_m *Handler) ConfigureSNAT(mapPin string) error {
+	ret := _m.Called(mapPin)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ConfigureSNAT")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(mapPin)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Handler_ConfigureSNAT_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConfigureSNAT'
+type Handler_ConfigureSNAT_Call struct {
+	*mock.Call
+}
+
+// ConfigureSNAT is a helper method to define mock.On call
+//   - mapPin string
+func (_e *Handler_Expecter) ConfigureSNAT(mapPin interface{}) *Handler_ConfigureSNAT_Call {
+	return &Handler_ConfigureSNAT_Call{Call: _e.mock.On("ConfigureSNAT", mapPin)}
+}
+
+func (_c *Handler_ConfigureSNAT_Call) Run(run func(mapPin string)) *Handler_ConfigureSNAT_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *Handler_ConfigureSNAT_Call) Return(_a0 error) *Handler_ConfigureSNAT_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Handler_ConfigureSNAT_Call) RunAndReturn(run func(string) error) *Handler_ConfigureSNAT_Call {
 	_c.Call.Return(run)
 	return _c
 }

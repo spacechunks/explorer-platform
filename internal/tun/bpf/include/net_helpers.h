@@ -1,6 +1,9 @@
 #pragma once
 
 #define TC_ACT_OK 0
+#define IP_ADDR_LEN 4
+#define BPF_F_PSEUDO_HDR 0x10
+
 #define IP_CSUM_OFF (ETH_HLEN + offsetof(struct iphdr, check))
 #define TCP_CSUM_OFF (ETH_HLEN + sizeof(struct iphdr) + offsetof(struct tcphdr, check))
 

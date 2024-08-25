@@ -14,6 +14,12 @@
       created root directory.
   * this way we have fast dev experience (hopefully)
 
-* tun
+* ptpnat
+  * test following scenarios
+    * program update:
+      * check if ebpf programs are updated when new cni is installed
+    * node restart
+      * remove pod after restart
+      * add pod after restart
   * ip tunnel forwarding mc server traffic
   * see https://whimsical.com/chunk-explorer-DEenwdYYJjsfRTzN2zN6vr

@@ -1,12 +1,15 @@
 package tun_test
 
 import (
+	"fmt"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spacechunks/platform/internal/tun"
 	tuntesting "github.com/spacechunks/platform/test/functional/tun"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	"log"
 	"testing"
 )
 
@@ -33,6 +36,8 @@ var stdinData = []byte(`
 }
 `)
 
+// TestSetup tests that ip addresses cloud be allocated
+// and configured on the veth-pairs.
 func TestSetup(t *testing.T) {
 	var (
 		created, origin, name = tuntesting.CreateNetns(t)
@@ -40,36 +45,98 @@ func TestSetup(t *testing.T) {
 		ctrID                 = "ABC"
 		nsPath                = "/var/run/netns/" + name
 	)
+
 	defer func() {
 		created.Close()
 		origin.Close()
 		netns.DeleteNamed(name)
 		h.DeallocIPs("host-local", stdinData)
 	}()
+
+	// host-local cni plugin requires container id
 	tuntesting.SetCNIEnvVars(ctrID, "ignored", "ignored")
+
 	ips, err := h.AllocIPs("host-local", stdinData)
-	if err != nil {
-		t.Fatalf("alloc ips: %v", err)
-	}
+	require.NoError(t, err)
+
 	hostVethName, podVethName, err := h.CreateAndConfigureVethPair(nsPath, ips)
-	if err != nil {
-		t.Fatalf("create and configure failed: %v", err)
-	}
+	require.NoError(t, err)
+
 	var (
 		hostVeth = tuntesting.GetLinkByNS(t, hostVethName, origin)
 		podVeth  = tuntesting.GetLinkByNS(t, podVethName, created)
 	)
-	assert.NotNil(t, podVeth, "pod veth not found")
-	assert.NotNil(t, hostVeth, "host veth not found")
-	assert.Equal(t, tun.VethMTU, podVeth.Attrs().MTU)
-	if err := ns.WithNetNSPath(nsPath, func(netNS ns.NetNS) error {
-		tuntesting.AssertAddrConfigured(t, podVethName, tun.ContainerIP4)
+
+	require.NotNil(t, podVeth, "pod veth not found")
+	require.NotNil(t, hostVeth, "host veth not found")
+	require.Equal(t, tun.VethMTU, podVeth.Attrs().MTU)
+
+	err = ns.WithNetNSPath(nsPath, func(netNS ns.NetNS) error {
+		tuntesting.RequireAddrConfigured(t, podVethName, tun.ContainerIP4)
 		return nil
-	}); err != nil {
-		log.Fatalf("check pod ns: %v", err)
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, netns.Set(origin))
+	tuntesting.RequireAddrConfigured(t, hostVethName, ips[0].Address.String())
+}
+
+func TestBPFAttach(t *testing.T) {
+	tests := []struct {
+		name               string
+		pinPrefix          string
+		expectedAttachType uint32
+		attach             func(*testing.T, tun.Handler, string)
+	}{
+		{
+			name:               "attach dnat",
+			pinPrefix:          "dnat_",
+			expectedAttachType: 46, // BPF_TCX_INGRESS, see github.com/cilium/ebpf/internal/sys/types.go
+			attach: func(t *testing.T, h tun.Handler, ifaceName string) {
+				require.NoError(t, h.AttachDNATBPF(ifaceName))
+			},
+		},
+		{
+			name:               "attach snat",
+			pinPrefix:          "snat_",
+			expectedAttachType: 46,
+			attach: func(t *testing.T, h tun.Handler, ifaceName string) {
+				require.NoError(t, h.AttachSNATBPF(ifaceName))
+			},
+		},
 	}
-	if err := netns.Set(origin); err != nil {
-		log.Fatalf("switch back: %v", err)
+
+	// use for different iface names
+	count := 0
+
+	for _, tt := range tests {
+		count++
+		t.Run(tt.name, func(t *testing.T) {
+			var (
+				ifaceName = fmt.Sprintf("functestveth%d", count)
+				vethpair  = &netlink.Veth{
+					LinkAttrs: netlink.LinkAttrs{
+						Name: ifaceName,
+					},
+					PeerName: ifaceName + "-p",
+				}
+			)
+
+			require.NoError(t, netlink.LinkAdd(vethpair))
+			defer netlink.LinkDel(vethpair)
+
+			h := tun.NewHandler()
+			tt.attach(t, h, ifaceName)
+
+			l, err := link.LoadPinnedLink("/sys/fs/bpf/"+tt.pinPrefix+ifaceName, &ebpf.LoadPinOptions{})
+			require.NoError(t, err)
+
+			defer l.Unpin()
+
+			info, err := l.Info()
+			require.NoError(t, err)
+
+			require.Equal(t, tt.expectedAttachType, uint32(info.TCX().AttachType))
+		})
 	}
-	tuntesting.AssertAddrConfigured(t, hostVethName, ips[0].Address.String())
 }

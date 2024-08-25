@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 apt update
-apt-get install -y gnupg2
+apt-get install -y gnupg2 git
 
 # crio
 MAJOR_VERSION=1.30
@@ -40,26 +40,37 @@ apt install -y iproute2 libnftables-dev libgnutls28-dev
 apt install -y libnl-3-dev libnet-dev libcap-dev
 cd criu-3.19
 make install
+cd -
 
 # go
 wget https://go.dev/dl/go1.22.3.linux-arm64.tar.gz
 tar -C /usr/local -xzf go1.22.3.linux-arm64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
 echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.profile
 
-ip netns add t0
-ip netns set t0 10
-ip link add vetht0a type veth peer name vetht0b
-ip link set vetht0b netns t0
-ip addr add 10.0.0.2/24 dev vetht0a
-ip link set dev vetht0a up
-ip netns exec t0 ip addr add 10.0.0.1/24 dev vetht0b
-ip netns exec t0 ip link set dev vetht0b up
+# cni plugins
+git clone https://github.com/containernetworking/plugins.git
+cd plugins
+./build_linux.sh
+cd -
+mkdir -p /opt/cni
+cp -r plugins/bin /opt/cni
+ls /opt/cni
+cp ptpnat /opt/cni/bin/ptpnat
 
-ip netns add t1
-ip netns set t1 11
-ip link add vetht1a type veth peer name vetht1b
-ip link set  vetht1b netns t1
-ip addr add 10.0.0.3/24 dev vetht1a
-ip link set dev vetht1a up
-ip netns exec t1 ip addr add 10.0.0.1/24 dev vetht1b
-ip netns exec t1 ip link set dev vetht1b up
+# install ptpnat
+# TODO: copy ptpnat binray
+cp /root/10-ptpnat.conflist /top
+
+# crictl
+VERSION=v1.30.1 # check latest version in /releases page
+ARCH=arm64
+wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-$ARCH.tar.gz
+sudo tar zxvf crictl-$VERSION-linux-$ARCH.tar.gz -C /usr/local/bin
+rm -f crictl-$VERSION-linux-$ARCH.tar.gz
+
+# run nginx pod
+crictl pull docker.io/nginx:stable-alpine-slim
+pod=$(crictl -t 5m runp pod.json)
+ctr=$(crictl -t 5m create $pod ctr.json pod.json)
+crictl -t 5m start $ctr

@@ -1,0 +1,16 @@
+{
+  "cniVersion": "1.0.0",
+  "name": "ptpnat",
+  "plugins": [
+    {
+      "type": "ptpnat",
+      "hostIface": "eth0",
+      "ipam": {
+        "type": "host-local",
+        "ranges":[
+          [{"subnet": "10.0.10.0/24"}]
+        ]
+      }
+    }
+  ]
+}
