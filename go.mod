@@ -10,7 +10,6 @@ require (
 	github.com/containernetworking/plugins v1.5.0
 	github.com/google/go-containerregistry v0.17.0
 	github.com/peterbourgon/ff/v3 v3.4.0
-	github.com/rs/zerolog v1.29.0
 	github.com/stretchr/testify v1.9.0
 	github.com/vektra/mockery/v2 v2.43.2
 	github.com/vishvananda/netlink v1.2.1-beta.2
@@ -44,6 +43,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rs/zerolog v1.29.0 // indirect
 	github.com/safchain/ethtool v0.3.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
@@ -58,7 +58,7 @@ require (
 	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/term v0.5.0 // indirect
+	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.20.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
