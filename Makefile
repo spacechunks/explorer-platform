@@ -1,5 +1,7 @@
 WORKDIR := work
 CNI_PLUGINS := $(WORKDIR)/plugins/bin
+SUDO := $(sudo --preserve-env=PATH,CNI_PATH env)
+
 
 .PHONY: setup
 setup:
@@ -15,14 +17,20 @@ vmlinux:
 gogen_all:
 	go generate ./...
 
-export CNI_PATH=$(shell pwd)/$(CNI_PLUGINS)
-
 .PHONY: nodedev
 nodedev:
 	./nodedev/up.sh
 
+.PHONY: e2etests
+e2etests:
+	GOOS=linux GOARCH=arm64 go build -o ./nodedev/ptpnat ./cmd/ptpnat/main.go
+	$(SUDO) go test ./test/e2e/...
+
+# functests require CNI_PATH to be set
+export CNI_PATH=$(shell pwd)/$(CNI_PLUGINS)
+
 functests: $(CNI_PLUGINS)
-	sudo --preserve-env=PATH,CNI_PATH env go test ./test/functional/...
+	$(SUDO) go test ./test/functional/...
 
 $(CNI_PLUGINS): $(WORKDIR)
 	git clone git@github.com:containernetworking/plugins.git $(CNI_PLUGINS)
