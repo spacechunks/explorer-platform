@@ -5,9 +5,9 @@ SUDO := $(sudo --preserve-env=PATH,CNI_PATH env)
 
 .PHONY: setup
 setup:
-	sudo apt update
-	sudo apt install -y linux-tools-common libbpf-dev
-	sudo mount bpffs /sys/fs/bpf -t bpf
+	$(SUDO) apt update
+	$(SUDO) apt install -y linux-tools-common libbpf-dev
+	$(SUDO) mount bpffs /sys/fs/bpf -t bpf
 
 .PHONY: vmlinux
 vmlinux:
