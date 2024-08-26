@@ -31,19 +31,25 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 )
 
 func before(t *testing.T, ctx context.Context, testEnv *test.Env) {
-	addr := testEnv.CreateServer(ctx)
-	setup(t, addr)
 	t.Cleanup(func() {
 		testEnv.Cleanup(ctx)
 	})
+	testEnv.Setup(ctx)
+	addr := testEnv.CreateServer(ctx)
+	test.WaitServerReady(t, addr+":22", 1*time.Minute) // as soon as we can ssh we are ready
+	setup(t, testEnv, addr)
 }
 
 func TestA(t *testing.T) {
-	//testEnv := env.New(t, "")
-	//before(t, testEnv)
+	var (
+		testEnv = test.NewEnv(t, "")
+		ctx     = context.Background()
+	)
+	before(t, ctx, testEnv)
 
 }
 
@@ -51,7 +57,7 @@ func TestB(t *testing.T) {
 	t.Fail()
 }
 
-func setup(t *testing.T, addr string) {
+func setup(t *testing.T, env *test.Env, addr string) {
 	err := fs.WalkDir(nodedev.Files, ".", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil
@@ -72,7 +78,7 @@ func setup(t *testing.T, addr string) {
 		}
 
 		_, _, err = runCMD(
-			fmt.Sprintf("scp -r -o StrictHostKeyChecking=no %s root@%s:/root/%s", f.Name(), addr, path),
+			fmt.Sprintf("scp -i /tmp/%s -r -o StrictHostKeyChecking=no %s root@%s:/root/%s", env.ID, f.Name(), addr, path),
 		)
 		if err != nil {
 			return fmt.Errorf("exec: %w", err)
