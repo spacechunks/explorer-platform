@@ -20,12 +20,13 @@ package main
 
 import (
 	"flag"
+	"log"
+	"os"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
 	ff "github.com/peterbourgon/ff/v3"
 	"github.com/spacechunks/platform/internal/ptpnat"
-	"log"
-	"os"
 )
 
 func main() {
@@ -50,7 +51,7 @@ func main() {
 	if *snatMap != "" {
 		log.Fatalf("main interface not specified")
 	}
-	if err := handler.ConfigureSNAT(*snatMap); err != nil {
+	if err := handler.ConfigureSNAT(nil); err != nil {
 		log.Fatalf("failed to configure snat: %v", err)
 	}
 	if err := handler.AttachDNATBPF(*hostIface); err != nil {

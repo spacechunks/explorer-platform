@@ -19,15 +19,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package ptpnat
 
 import (
-	"github.com/spacechunks/platform/test"
-	"github.com/stretchr/testify/require"
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 	"log"
 	"net"
 	"os"
 	"runtime"
 	"testing"
+
+	"github.com/spacechunks/platform/test"
+	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 )
 
 // SetCNIEnvVars sets environment variables needed in order

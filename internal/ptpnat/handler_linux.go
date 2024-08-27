@@ -23,14 +23,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
-	"net"
-	"net/netip"
 )
 
 // just for reference: _ctr_ is short for _container_

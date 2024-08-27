@@ -21,9 +21,10 @@ package ptpnat
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
-	"log"
 )
 
 // Conf currently functions only as a wrapper struct for types.NetConf.

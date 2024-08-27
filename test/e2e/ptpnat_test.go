@@ -23,15 +23,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/spacechunks/platform/nodedev"
-	"github.com/spacechunks/platform/test"
-	"github.com/stretchr/testify/require"
 	"io/fs"
 	"log"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/spacechunks/platform/nodedev"
+	"github.com/spacechunks/platform/test"
+	"github.com/stretchr/testify/require"
 )
 
 func before(t *testing.T, ctx context.Context, testEnv *test.Env) {
@@ -44,17 +45,13 @@ func before(t *testing.T, ctx context.Context, testEnv *test.Env) {
 	setup(t, testEnv, addr)
 }
 
-func TestA(t *testing.T) {
+func TestPTPNAT(t *testing.T) {
 	var (
-		testEnv = test.NewEnv(t, "")
+		testEnv = test.NewEnv(t, os.Getenv("E2E_HCLOUD_TOKEN"))
 		ctx     = context.Background()
 	)
 	before(t, ctx, testEnv)
 
-}
-
-func TestB(t *testing.T) {
-	t.Fail()
 }
 
 func setup(t *testing.T, env *test.Env, addr string) {
@@ -85,6 +82,9 @@ func setup(t *testing.T, env *test.Env, addr string) {
 		}
 		return nil
 	})
+	require.NoError(t, err)
+
+	_, _, err = runCMD(fmt.Sprintf("ssh -i /tmp/%s -o StrictHostKeyChecking=no root@%s bash ./provision.sh", env.ID, addr))
 	require.NoError(t, err)
 }
 

@@ -20,6 +20,9 @@ package ptpnat_test
 
 import (
 	"errors"
+	"net"
+	"testing"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -28,8 +31,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	"net"
-	"testing"
 )
 
 // we use github.com/vishvananda/netns library and

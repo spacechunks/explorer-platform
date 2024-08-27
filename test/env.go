@@ -22,12 +22,13 @@ import (
 	"context"
 	_ "embed"
 	"encoding/pem"
+	"os"
+	"testing"
+
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
-	"os"
-	"testing"
 )
 
 type Env struct {
@@ -79,8 +80,6 @@ func (e *Env) CreateServer(ctx context.Context) string {
 	}
 
 	name := "e2e-" + RandHexStr(e.t)
-	e.t.Logf("creating server %s", name)
-
 	res, _, err := e.client.Server.Create(ctx, hcloud.ServerCreateOpts{
 		Name: name,
 		SSHKeys: []*hcloud.SSHKey{
