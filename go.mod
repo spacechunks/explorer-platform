@@ -10,11 +10,11 @@ require (
 	github.com/containernetworking/plugins v1.5.0
 	github.com/google/go-containerregistry v0.17.0
 	github.com/hetznercloud/hcloud-go/v2 v2.13.1
-	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/stretchr/testify v1.9.0
 	github.com/vektra/mockery/v2 v2.43.2
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vishvananda/netns v0.0.4
+	golang.org/x/crypto v0.26.0
 	golang.org/x/sync v0.8.0
 )
 
@@ -62,7 +62,6 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.27.0 // indirect

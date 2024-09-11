@@ -27,9 +27,9 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 )
 
-// Conf currently functions only as a wrapper struct for types.NetConf.
 type Conf struct {
 	types.NetConf
+	HostIface string `json:"hostIface"`
 }
 
 type CNI struct {
@@ -59,6 +59,14 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("no IPAM configuration")
 	}
 
+	if conf.HostIface == "" {
+		return fmt.Errorf("hostIface config value not set")
+	}
+
+	if err := c.handler.AttachDNATBPF(conf.HostIface); err != nil {
+		return fmt.Errorf("failed to attach dnat bpf to %s: %w", conf.HostIface, err)
+	}
+
 	defer func() {
 		if err != nil {
 			if err := c.handler.DeallocIPs(conf.IPAM.Type, args.StdinData); err != nil {
@@ -72,13 +80,17 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("alloc ips: %w", err)
 	}
 
-	_, podVethName, err := c.handler.CreateAndConfigureVethPair(args.Netns, ips)
+	hostVethName, podVethName, err := c.handler.CreateAndConfigureVethPair(args.Netns, ips)
 	if err != nil {
 		return fmt.Errorf("configure veth pair: %w", err)
 	}
 
 	if err := c.handler.AttachSNATBPF(podVethName); err != nil {
 		return fmt.Errorf("attach snat: %w", err)
+	}
+
+	if err := c.handler.ConfigureSNAT(hostVethName); err != nil {
+		log.Fatalf("failed to configure snat: %v", err)
 	}
 
 	return nil
