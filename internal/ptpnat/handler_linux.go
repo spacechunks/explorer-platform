@@ -52,7 +52,7 @@ type Handler interface {
 	AllocIPs(plugin string, stdinData []byte) ([]*current.IPConfig, error)
 	DeallocIPs(plugin string, stdinData []byte) error
 	AttachDNATBPF(ifaceName string) error
-	ConfigureSNAT(iface *net.Interface) error
+	ConfigureSNAT(ifaceName string) error
 }
 
 type cniHandler struct {
@@ -175,7 +175,7 @@ func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
 	return nil
 }
 
-func (h *cniHandler) ConfigureSNAT(iface *net.Interface) error {
+func (h *cniHandler) ConfigureSNAT(ifaceName string) error {
 	var maps snatMaps
 	if err := loadSnatObjects(&maps, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
@@ -183,6 +183,11 @@ func (h *cniHandler) ConfigureSNAT(iface *net.Interface) error {
 		},
 	}); err != nil {
 		return fmt.Errorf("load snat maps: %w", err)
+	}
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return fmt.Errorf("get iface: %w", err)
 	}
 
 	addrs, err := iface.Addrs()
@@ -202,7 +207,7 @@ func (h *cniHandler) ConfigureSNAT(iface *net.Interface) error {
 	sl := prefix.Addr().As4()
 	if err := maps.PtpSnatConfig.Put(uint8(0), snatPtpSnatEntry{
 		IpAddr:   binary.LittleEndian.Uint32(sl[:]), // host byte order is little endian
-		IfaceIdx: 3,
+		IfaceIdx: uint8(iface.Index),
 	}); err != nil {
 		return fmt.Errorf("put config: %w", err)
 	}
