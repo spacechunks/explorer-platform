@@ -18,5 +18,5 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package ptpnat
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go snat bpf/snat.c -- -I bpf/include
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go dnat bpf/dnat.c -- -I bpf/include
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 snat bpf/snat.c -- -I bpf/include
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 dnat bpf/dnat.c -- -I bpf/include
