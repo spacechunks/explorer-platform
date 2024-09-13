@@ -20,6 +20,9 @@ package ptpnat_test
 
 import (
 	"errors"
+	"net"
+	"testing"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -28,8 +31,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	"net"
-	"testing"
 )
 
 // we use github.com/vishvananda/netns library and
@@ -110,9 +111,11 @@ func TestBPFAttach(t *testing.T) {
 		attach             func(*testing.T, ptpnat.Handler, string)
 	}{
 		{
-			name:               "attach dnat",
-			pinPrefix:          "dnat_",
-			expectedAttachType: 46, // BPF_TCX_INGRESS, see github.com/cilium/ebpf/internal/sys/types.go
+			name:      "attach dnat",
+			pinPrefix: "dnat_",
+			// BPF_TCX_INGRESS
+			// see https://github.com/cilium/ebpf/blob/625b0a910e1ba666e483e75b149880ce3b54dc85/internal/sys/types.go#L229
+			expectedAttachType: 46,
 			attach: func(t *testing.T, h ptpnat.Handler, ifaceName string) {
 				require.NoError(t, h.AttachDNATBPF(ifaceName))
 			},
@@ -197,6 +200,7 @@ func TestConfigureSNAT(t *testing.T) {
 
 			defer conf.Unpin()
 
+			// copied from one of the generated snat_bpf*.go files
 			type ptpSnatEntry struct {
 				IpAddr   uint32
 				IfaceIdx uint8

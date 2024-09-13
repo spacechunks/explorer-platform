@@ -3,8 +3,6 @@
 package mock
 
 import (
-	net "net"
-
 	mock "github.com/stretchr/testify/mock"
 
 	types100 "github.com/containernetworking/cni/pkg/types/100"
@@ -174,17 +172,17 @@ func (_c *Handler_AttachSNATBPF_Call) RunAndReturn(run func(string) error) *Hand
 	return _c
 }
 
-// ConfigureSNAT provides a mock function with given fields: iface
-func (_m *Handler) ConfigureSNAT(iface *net.Interface) error {
-	ret := _m.Called(iface)
+// ConfigureSNAT provides a mock function with given fields: ifaceName
+func (_m *Handler) ConfigureSNAT(ifaceName string) error {
+	ret := _m.Called(ifaceName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ConfigureSNAT")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*net.Interface) error); ok {
-		r0 = rf(iface)
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(ifaceName)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -198,14 +196,14 @@ type Handler_ConfigureSNAT_Call struct {
 }
 
 // ConfigureSNAT is a helper method to define mock.On call
-//   - iface *net.Interface
-func (_e *Handler_Expecter) ConfigureSNAT(iface interface{}) *Handler_ConfigureSNAT_Call {
-	return &Handler_ConfigureSNAT_Call{Call: _e.mock.On("ConfigureSNAT", iface)}
+//   - ifaceName string
+func (_e *Handler_Expecter) ConfigureSNAT(ifaceName interface{}) *Handler_ConfigureSNAT_Call {
+	return &Handler_ConfigureSNAT_Call{Call: _e.mock.On("ConfigureSNAT", ifaceName)}
 }
 
-func (_c *Handler_ConfigureSNAT_Call) Run(run func(iface *net.Interface)) *Handler_ConfigureSNAT_Call {
+func (_c *Handler_ConfigureSNAT_Call) Run(run func(ifaceName string)) *Handler_ConfigureSNAT_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*net.Interface))
+		run(args[0].(string))
 	})
 	return _c
 }
@@ -215,7 +213,7 @@ func (_c *Handler_ConfigureSNAT_Call) Return(_a0 error) *Handler_ConfigureSNAT_C
 	return _c
 }
 
-func (_c *Handler_ConfigureSNAT_Call) RunAndReturn(run func(*net.Interface) error) *Handler_ConfigureSNAT_Call {
+func (_c *Handler_ConfigureSNAT_Call) RunAndReturn(run func(string) error) *Handler_ConfigureSNAT_Call {
 	_c.Call.Return(run)
 	return _c
 }

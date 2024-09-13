@@ -22,12 +22,13 @@ package ptpnat_test
 
 import (
 	"errors"
+	"net"
+	"testing"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/spacechunks/platform/internal/mock"
 	"github.com/spacechunks/platform/internal/ptpnat"
 	"github.com/stretchr/testify/assert"
-	"net"
-	"testing"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
 )

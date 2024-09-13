@@ -19,6 +19,20 @@
 apt update
 apt-get install -y gnupg2 git
 
+# cni plugins
+git clone https://github.com/containernetworking/plugins.git
+cd plugins
+./build_linux.sh
+cd -
+mkdir -p /opt/cni
+cp -r plugins/bin /opt/cni
+ls /opt/cni
+
+# install ptpnat
+cp ptpnat /opt/cni/bin/ptpnat
+mkdir -p /etc/cni/net.d/
+cp /root/10-ptpnat.conflist /etc/cni/net.d/10-ptpnat.conflist
+
 # crio
 MAJOR_VERSION=1.30
 curl -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/v$MAJOR_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/cri-o-apt-keyring.gpg
@@ -43,24 +57,10 @@ make install
 cd -
 
 # go
-wget https://go.dev/dl/go1.22.3.linux-arm64.tar.gz
-tar -C /usr/local -xzf go1.22.3.linux-arm64.tar.gz
+wget https://go.dev/dl/go1.23.1.linux-arm64.tar.gz
+tar -C /usr/local -xzf go1.23.1.linux-arm64.tar.gz
 export PATH=$PATH:/usr/local/go/bin
 echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.profile
-
-# cni plugins
-git clone https://github.com/containernetworking/plugins.git
-cd plugins
-./build_linux.sh
-cd -
-mkdir -p /opt/cni
-cp -r plugins/bin /opt/cni
-ls /opt/cni
-cp ptpnat /opt/cni/bin/ptpnat
-
-# install ptpnat
-# TODO: copy ptpnat binray
-cp /root/10-ptpnat.conflist /top
 
 # crictl
 VERSION=v1.30.1 # check latest version in /releases page
