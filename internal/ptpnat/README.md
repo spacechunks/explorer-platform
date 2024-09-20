@@ -7,12 +7,12 @@ NAT technology. ptpnat -> port-to-pod-network-address-translation.
 
 Here is a quick explanation of what the purpose of our eBPF programs is.
 
-**`snat.c`**
-Match incoming TCP packets by port and change their source IP address and redirect them to the corresponding veth peer. 
+**`dnat.c`**
+Match incoming TCP packets by port and change their destination IP address and redirect them to the corresponding veth peer. 
 This program will be run on main on the main physical interface, specifically TC ingress.
 
-**`dnat.c`**
-Redirect arriving packets to main physical interface by changing destination IP address.
+**`snat.c`**
+Redirect arriving packets to main physical interface by changing source IP address.
 This program will be run on the host-side veth peer, specifically TC ingress.
 
 **includes**
