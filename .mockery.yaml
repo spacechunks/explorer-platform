@@ -1,0 +1,8 @@
+with-expecter: true
+disable-version-string: true
+dir: internal/mock
+filename: "{{ .PackageName }}_{{ .InterfaceName | snakecase }}.go"
+packages:
+  github.com/spacechunks/platform/internal/ptpnat:
+    interfaces:
+      Handler:
