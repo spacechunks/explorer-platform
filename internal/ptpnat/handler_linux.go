@@ -39,6 +39,8 @@ import (
 const (
 	VethMTU      = 1400
 	ContainerIP4 = "10.0.0.1/24"
+
+	pinPath = "/sys/fs/bpf"
 )
 
 type Handler interface {
@@ -71,7 +73,7 @@ func (h *cniHandler) AttachSNATBPF(ifaceName string) error {
 	var snatProgs snatPrograms
 	if err := loadSnatObjects(&snatProgs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
-			PinPath: "/sys/fs/bpf",
+			PinPath: pinPath,
 		},
 	}); err != nil {
 		return fmt.Errorf("load snat objs: %w", err)
@@ -153,7 +155,11 @@ func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
 	}
 
 	var dnatObjs dnatObjects
-	if err := loadDnatObjects(&dnatObjs, nil); err != nil {
+	if err := loadDnatObjects(&dnatObjs, &ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{
+			PinPath: pinPath,
+		},
+	}); err != nil {
 		return fmt.Errorf("load dnat objs: %w", err)
 	}
 
@@ -179,7 +185,7 @@ func (h *cniHandler) ConfigureSNAT(ifaceName string) error {
 	var maps snatMaps
 	if err := loadSnatObjects(&maps, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
-			PinPath: "/sys/fs/bpf",
+			PinPath: pinPath,
 		},
 	}); err != nil {
 		return fmt.Errorf("load snat maps: %w", err)

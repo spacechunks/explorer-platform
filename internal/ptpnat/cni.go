@@ -21,11 +21,15 @@ package ptpnat
 import (
 	"encoding/json"
 	"fmt"
+	current "github.com/containernetworking/cni/pkg/types/100"
 	"log"
+	"os"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 )
+
+const supportedVersion = "1.0.0"
 
 type Conf struct {
 	types.NetConf
@@ -85,7 +89,7 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("configure veth pair: %w", err)
 	}
 
-	if err := c.handler.AttachSNATBPF(podVethName); err != nil {
+	if err := c.handler.AttachSNATBPF(hostVethName); err != nil {
 		return fmt.Errorf("attach snat: %w", err)
 	}
 
@@ -93,10 +97,25 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 		log.Fatalf("failed to configure snat: %v", err)
 	}
 
+	result := &current.Result{
+		CNIVersion: supportedVersion,
+		Interfaces: []*current.Interface{
+			{
+				Name:    podVethName,
+				Sandbox: args.Netns,
+			},
+		},
+	}
+
+	if err := result.PrintTo(os.Stdout); err != nil {
+		return fmt.Errorf("print result: %w", err)
+	}
+
 	return nil
 }
 
 func (c *CNI) ExecDel(args *skel.CmdArgs) error {
+	log.Println("del")
 	// TODO: remove veth pairs
 	return nil
 }
