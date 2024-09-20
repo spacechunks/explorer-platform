@@ -23,4 +23,10 @@
       * add pod after restart
   * ip tunnel forwarding mc server traffic
   * see https://whimsical.com/chunk-explorer-DEenwdYYJjsfRTzN2zN6vr
-  * check if we need to adjust routing table entries, so that packets arrive at snat ebpf prog
+
+# TODO
+* adjust routing table so packets will be sent out to the veth device by default
+  * we need to make this the default route, because incoming packets from clients
+    can be from potentially any ip range
+  * ip netns exec 26478158-a7e1-4364-ab89-0c0cd83c8099 ip route add default via 10.0.0.1 dev 28b944013073507
+

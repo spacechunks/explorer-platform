@@ -17,6 +17,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 apt update
+
+# linux-tools-6.8.0-38-generic needed for bpftool
 apt-get install -y gnupg2 git linux-tools-6.8.0-38-generic
 
 # pwru
