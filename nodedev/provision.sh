@@ -17,7 +17,19 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 apt update
-apt-get install -y gnupg2 git
+
+# linux-tools-6.8.0-38-generic needed for bpftool
+apt-get install -y gnupg2 git linux-tools-6.8.0-38-generic
+
+# pwru
+wget https://github.com/cilium/pwru/releases/download/v1.0.8/pwru-linux-arm64.tar.gz
+tar -xzvf pwru-linux-arm64.tar.gz
+
+# go
+wget https://go.dev/dl/go1.23.1.linux-arm64.tar.gz
+tar -C /usr/local -xzf go1.23.1.linux-arm64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.profile
 
 # cni plugins
 git clone https://github.com/containernetworking/plugins.git
@@ -26,7 +38,6 @@ cd plugins
 cd -
 mkdir -p /opt/cni
 cp -r plugins/bin /opt/cni
-ls /opt/cni
 
 # install ptpnat
 cp ptpnat /opt/cni/bin/ptpnat
@@ -55,12 +66,6 @@ apt install -y libnl-3-dev libnet-dev libcap-dev
 cd criu-3.19
 make install
 cd -
-
-# go
-wget https://go.dev/dl/go1.23.1.linux-arm64.tar.gz
-tar -C /usr/local -xzf go1.23.1.linux-arm64.tar.gz
-export PATH=$PATH:/usr/local/go/bin
-echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.profile
 
 # crictl
 VERSION=v1.30.1 # check latest version in /releases page

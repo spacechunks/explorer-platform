@@ -27,17 +27,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define IP_DST_OFF (ETH_HLEN + offsetof(struct iphdr, daddr))
 
 struct dnat_target {
-    __le32 ip_addr; /* host network order */
+    __u32 ip_addr; /* host byte order */
     __u8 iface_idx;
     __u8 mac_addr[ETH_ALEN];
 };
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __le16); /* host network order */
+    __type(key, __u16); /* host byte order */
     __type(value, struct dnat_target);
     __uint(max_entries, 256); /* TODO: determine sane value */
-} dnat_targets SEC(".maps");
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+} ptp_dnat_targets SEC(".maps");
 
 SEC("tc")
 int dnat(struct __sk_buff *ctx)
@@ -51,8 +52,8 @@ int dnat(struct __sk_buff *ctx)
     __be16 nport;
     bpf_skb_load_bytes(ctx, TCP_DPORT_OFF, &nport, sizeof(__be16));
 
-    __le16 hport = bpf_ntohs(nport);
-    struct dnat_target *tgt = bpf_map_lookup_elem(&dnat_targets, &hport);
+    __u16 hport = bpf_ntohs(nport);
+    struct dnat_target *tgt = bpf_map_lookup_elem(&ptp_dnat_targets, &hport);
 
     if (tgt == NULL) {
         bpf_printk("no dnat target for port %d", hport);

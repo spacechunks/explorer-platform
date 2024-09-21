@@ -26,7 +26,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define IP_SRC_OFF (ETH_HLEN + offsetof(struct iphdr, saddr))
 
 struct ptp_snat_entry {
-    __le32 ip_addr;
+    __u32 ip_addr; /* host byte order */
     __u8 iface_idx;
 };
 
@@ -57,7 +57,7 @@ int snat(struct __sk_buff *ctx)
     __be32 src = bpf_htonl(entry->ip_addr);
     __be32 prev_src;
 
-    bpf_skb_load_bytes(ctx, IP_SRC_OFF, &prev_src, 4);
+    bpf_skb_load_bytes(ctx, IP_SRC_OFF, &prev_src, IP_ADDR_LEN);
     bpf_skb_store_bytes(ctx, IP_SRC_OFF, &src, sizeof(src), 0);
     bpf_l3_csum_replace(ctx, IP_CSUM_OFF, prev_src, src, sizeof(src));
     bpf_l4_csum_replace(ctx, TCP_CSUM_OFF, prev_src, src,  BPF_F_PSEUDO_HDR | sizeof(src));

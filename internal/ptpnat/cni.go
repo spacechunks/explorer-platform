@@ -21,7 +21,9 @@ package ptpnat
 import (
 	"encoding/json"
 	"fmt"
+	current "github.com/containernetworking/cni/pkg/types/100"
 	"log"
+	"os"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
@@ -85,18 +87,37 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("configure veth pair: %w", err)
 	}
 
-	if err := c.handler.AttachSNATBPF(podVethName); err != nil {
+	if err := c.handler.AttachSNATBPF(hostVethName); err != nil {
 		return fmt.Errorf("attach snat: %w", err)
 	}
 
-	if err := c.handler.ConfigureSNAT(hostVethName); err != nil {
-		log.Fatalf("failed to configure snat: %v", err)
+	if err := c.handler.ConfigureSNAT(conf.HostIface); err != nil {
+		return fmt.Errorf("configure snat: %w", err)
+	}
+
+	if err := c.handler.AddDefaultRoute(args.Netns); err != nil {
+		return fmt.Errorf("add default route: %w", err)
+	}
+
+	result := &current.Result{
+		CNIVersion: supportedCNIVersion,
+		Interfaces: []*current.Interface{
+			{
+				Name:    podVethName,
+				Sandbox: args.Netns,
+			},
+		},
+	}
+
+	if err := result.PrintTo(os.Stdout); err != nil {
+		return fmt.Errorf("print result: %w", err)
 	}
 
 	return nil
 }
 
 func (c *CNI) ExecDel(args *skel.CmdArgs) error {
+	log.Println("del")
 	// TODO: remove veth pairs
 	return nil
 }

@@ -67,7 +67,7 @@ type dnatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type dnatMapSpecs struct {
-	DnatTargets *ebpf.MapSpec `ebpf:"dnat_targets"`
+	PtpDnatTargets *ebpf.MapSpec `ebpf:"ptp_dnat_targets"`
 }
 
 // dnatObjects contains all objects after they have been loaded into the kernel.
@@ -89,12 +89,12 @@ func (o *dnatObjects) Close() error {
 //
 // It can be passed to loadDnatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type dnatMaps struct {
-	DnatTargets *ebpf.Map `ebpf:"dnat_targets"`
+	PtpDnatTargets *ebpf.Map `ebpf:"ptp_dnat_targets"`
 }
 
 func (m *dnatMaps) Close() error {
 	return _DnatClose(
-		m.DnatTargets,
+		m.PtpDnatTargets,
 	)
 }
 
