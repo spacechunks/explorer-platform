@@ -36,7 +36,7 @@ import (
 func TestExecAdd(t *testing.T) {
 	tests := []struct {
 		name string
-		prep func(*mock.Handler, *skel.CmdArgs)
+		prep func(*mock.MockPtpnatHandler, *skel.CmdArgs)
 		args *skel.CmdArgs
 		err  string
 	}{
@@ -47,7 +47,7 @@ func TestExecAdd(t *testing.T) {
 				Netns:       "/path/to/netns",
 				StdinData:   []byte(`{"ipam":{"type":"host-local"}}`),
 			},
-			prep: func(h *mock.Handler, args *skel.CmdArgs) {
+			prep: func(h *mock.MockPtpnatHandler, args *skel.CmdArgs) {
 				ips := []*current.IPConfig{
 					{
 						Interface: nil,
@@ -72,7 +72,7 @@ func TestExecAdd(t *testing.T) {
 				StdinData: []byte(`{"ipam":{"type":"host-local"}}`),
 			},
 			err: "alloc ips: some error",
-			prep: func(h *mock.Handler, args *skel.CmdArgs) {
+			prep: func(h *mock.MockPtpnatHandler, args *skel.CmdArgs) {
 				h.EXPECT().
 					AllocIPs("host-local", args.StdinData).
 					Return(nil, errors.New("some error"))
@@ -85,7 +85,7 @@ func TestExecAdd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var (
-				h = mock.NewHandler(t)
+				h = mock.NewMockPtpnatHandler(t)
 				c = ptpnat.NewCNI(h)
 			)
 			tt.prep(h, tt.args)
