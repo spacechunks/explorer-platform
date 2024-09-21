@@ -52,7 +52,7 @@ int dnat(struct __sk_buff *ctx)
     __be16 nport;
     bpf_skb_load_bytes(ctx, TCP_DPORT_OFF, &nport, sizeof(__be16));
 
-    __le16 hport = bpf_ntohs(nport);
+    __u16 hport = bpf_ntohs(nport);
     struct dnat_target *tgt = bpf_map_lookup_elem(&ptp_dnat_targets, &hport);
 
     if (tgt == NULL) {
