@@ -20,9 +20,9 @@ package ptpnat
 
 import (
 	"crypto/rand"
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"net"
 	"net/netip"
 
@@ -36,13 +36,6 @@ import (
 
 // just for reference: _ctr_ is short for _container_
 
-const (
-	VethMTU      = 1400
-	ContainerIP4 = "10.0.0.1/24"
-
-	pinPath = "/sys/fs/bpf"
-)
-
 type Handler interface {
 	CreateAndConfigureVethPair(netNS string, ips []*current.IPConfig) (string, string, error)
 	AttachSNATBPF(ifaceName string) error
@@ -55,6 +48,7 @@ type Handler interface {
 	DeallocIPs(plugin string, stdinData []byte) error
 	AttachDNATBPF(ifaceName string) error
 	ConfigureSNAT(ifaceName string) error
+	AddDefaultRoute(nsPath string) error
 }
 
 type cniHandler struct {
@@ -182,15 +176,6 @@ func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
 }
 
 func (h *cniHandler) ConfigureSNAT(ifaceName string) error {
-	var maps snatMaps
-	if err := loadSnatObjects(&maps, &ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{
-			PinPath: pinPath,
-		},
-	}); err != nil {
-		return fmt.Errorf("load snat maps: %w", err)
-	}
-
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("get iface: %w", err)
@@ -210,26 +195,34 @@ func (h *cniHandler) ConfigureSNAT(ifaceName string) error {
 		return fmt.Errorf("parse addr: %w", err)
 	}
 
-	sl := prefix.Addr().As4()
-	if err := maps.PtpSnatConfig.Put(uint8(0), snatPtpSnatEntry{
-		IpAddr:   binary.LittleEndian.Uint32(sl[:]), // host byte order is little endian
-		IfaceIdx: uint8(iface.Index),
-	}); err != nil {
-		return fmt.Errorf("put config: %w", err)
+	if err := AddSNATTarget(0, prefix.Addr(), uint8(iface.Index)); err != nil {
+		return fmt.Errorf("add snat target: %w", err)
 	}
+	return nil
+}
 
+func (h *cniHandler) AddDefaultRoute(nsPath string) error {
+	if err := ns.WithNetNSPath(nsPath, func(_ ns.NetNS) error {
+		// for default gateway we can leave destination empty.
+		// we also do not need to specify the device, the kernel
+		// will figure this out for us.
+		if err := netlink.RouteAdd(&netlink.Route{
+			Gw:     ContainerIP4CIDR.IP,
+			Family: unix.AF_INET,
+			Scope:  netlink.SCOPE_LINK,
+		}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("add default route: %w", err)
+	}
 	return nil
 }
 
 func configureCTRIface(ctrNS ns.NetNS, ifaceName string) error {
 	if err := ctrNS.Do(func(ns.NetNS) error {
-		ip, ipNet, _ := net.ParseCIDR(ContainerIP4)
-		// for some reason the host part is lost
-		// in ipNet. 10.0.0.1/24 -> 10.0.0.0/24
-		return configureIface(ifaceName, &net.IPNet{
-			IP:   ip,
-			Mask: ipNet.Mask,
-		})
+		return configureIface(ifaceName, ContainerIP4CIDR)
 	}); err != nil {
 		return fmt.Errorf("ctr ns: %w", err)
 	}

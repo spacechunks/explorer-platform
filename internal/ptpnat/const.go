@@ -18,5 +18,31 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package ptpnat
 
+import "net"
+
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 snat bpf/snat.c -- -I bpf/include
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 dnat bpf/dnat.c -- -I bpf/include
+
+const (
+	VethMTU = 1400
+
+	supportedCNIVersion = "1.0.0"
+	pinPath             = "/sys/fs/bpf"
+)
+
+var (
+	ContainerIP4CIDR = mustParseCIDR("10.0.0.1/24")
+)
+
+func mustParseCIDR(cidr string) *net.IPNet {
+	ip, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		panic(err)
+	}
+	// for some reason the host part is lost
+	// in ipNet. 10.0.0.1/24 -> 10.0.0.0/24
+	return &net.IPNet{
+		IP:   ip,
+		Mask: ipNet.Mask,
+	}
+}

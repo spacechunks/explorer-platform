@@ -29,8 +29,6 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 )
 
-const supportedVersion = "1.0.0"
-
 type Conf struct {
 	types.NetConf
 	HostIface string `json:"hostIface"`
@@ -93,12 +91,16 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("attach snat: %w", err)
 	}
 
-	if err := c.handler.ConfigureSNAT(hostVethName); err != nil {
-		log.Fatalf("failed to configure snat: %v", err)
+	if err := c.handler.ConfigureSNAT(conf.HostIface); err != nil {
+		return fmt.Errorf("configure snat: %w", err)
+	}
+
+	if err := c.handler.AddDefaultRoute(args.Netns); err != nil {
+		return fmt.Errorf("add default route: %w", err)
 	}
 
 	result := &current.Result{
-		CNIVersion: supportedVersion,
+		CNIVersion: supportedCNIVersion,
 		Interfaces: []*current.Interface{
 			{
 				Name:    podVethName,
