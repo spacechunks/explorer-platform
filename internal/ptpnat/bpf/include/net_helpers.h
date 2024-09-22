@@ -4,6 +4,9 @@
 #define IP_ADDR_LEN 4
 #define BPF_F_PSEUDO_HDR 0x10
 
+#define ARPOP_REQUEST 1
+#define ARPOP_REPLY 2
+
 #define IP_CSUM_OFF (ETH_HLEN + offsetof(struct iphdr, check))
 #define TCP_CSUM_OFF (ETH_HLEN + sizeof(struct iphdr) + offsetof(struct tcphdr, check))
 
