@@ -26,6 +26,7 @@
 
 * request (TCP/UDP and HTTP) authorization
   * https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/dynamic_forward_proxy_filter#config-http-filters-dynamic-forward-proxy
+    * maybe original destination is better suited: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/original_dst
   * explore redirecting sockets using ebpf
     * redirect messages to envoy socket
   * verdicts could be determined by an external source (node agent)
