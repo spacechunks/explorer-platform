@@ -24,9 +24,17 @@
   * ip tunnel forwarding mc server traffic
   * see https://whimsical.com/chunk-explorer-DEenwdYYJjsfRTzN2zN6vr
 
+* request (TCP/UDP and HTTP) authorization
+  * https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/dynamic_forward_proxy_filter#config-http-filters-dynamic-forward-proxy
+  * explore redirecting sockets using ebpf
+    * redirect messages to envoy socket
+  * verdicts could be determined by an external source (node agent)
+    * https://www.envoyproxy.io/docs/envoy/latest/configuration/listeners/network_filters/ext_authz_filter#config-network-filters-ext-authz
+
 # TODO
-* adjust routing table so packets will be sent out to the veth device by default
-  * we need to make this the default route, because incoming packets from clients
-    can be from potentially any ip range
-  * ip netns exec 26478158-a7e1-4364-ab89-0c0cd83c8099 ip route add default via 10.0.0.1 dev 28b944013073507
+* need to implement arp responder
+* write missing tests for
+  * target_linux.go
+  * cni.go -> check what cases are not tested
+  * handler_linux.go (AdDefaultRoute)
 
