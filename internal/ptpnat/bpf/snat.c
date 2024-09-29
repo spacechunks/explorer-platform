@@ -44,8 +44,14 @@ int snat(struct __sk_buff *ctx)
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
 
+    /*
+     * since arp.c and snat.c are running on the same interfaces ingress path
+     * return TC_ACT_UNSPEC here to make sure arp.c will be run if the below
+     * condition is not met. returning TC_ACT_OK would lead to the packet being
+     * passed up the networking stack and never reach arp.c.
+     */
     if (ctx->protocol != bpf_htons(ETH_P_IP))
-        return TC_ACT_OK;
+        return TC_ACT_UNSPEC;
 
     __u8 idx = 0;
     struct ptp_snat_entry *entry = bpf_map_lookup_elem(&ptp_snat_config, &idx);
