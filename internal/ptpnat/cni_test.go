@@ -33,6 +33,10 @@ import (
 	current "github.com/containernetworking/cni/pkg/types/100"
 )
 
+// TODO:
+// * new test cases with missing hostname and missing ipam config
+// * test that correct stdout output is emitted
+
 func TestExecAdd(t *testing.T) {
 	tests := []struct {
 		name string
@@ -60,9 +64,9 @@ func TestExecAdd(t *testing.T) {
 					Return(ips, nil)
 				h.EXPECT().
 					CreateAndConfigureVethPair(args.Netns, ips).
-					Return("veth", "veth", nil)
+					Return("hostVeth", "podVeth", nil)
 				h.EXPECT().
-					AttachSNATBPF("veth").
+					AttachHostVethBPF("hostVeth").
 					Return(nil)
 			},
 		},

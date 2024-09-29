@@ -172,12 +172,12 @@ func (_c *MockPtpnatHandler_AttachDNATBPF_Call) RunAndReturn(run func(string) er
 	return _c
 }
 
-// AttachSNATBPF provides a mock function with given fields: ifaceName
-func (_m *MockPtpnatHandler) AttachSNATBPF(ifaceName string) error {
+// AttachHostVethBPF provides a mock function with given fields: ifaceName
+func (_m *MockPtpnatHandler) AttachHostVethBPF(ifaceName string) error {
 	ret := _m.Called(ifaceName)
 
 	if len(ret) == 0 {
-		panic("no return value specified for AttachSNATBPF")
+		panic("no return value specified for AttachHostVethBPF")
 	}
 
 	var r0 error
@@ -190,30 +190,30 @@ func (_m *MockPtpnatHandler) AttachSNATBPF(ifaceName string) error {
 	return r0
 }
 
-// MockPtpnatHandler_AttachSNATBPF_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachSNATBPF'
-type MockPtpnatHandler_AttachSNATBPF_Call struct {
+// MockPtpnatHandler_AttachHostVethBPF_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachHostVethBPF'
+type MockPtpnatHandler_AttachHostVethBPF_Call struct {
 	*mock.Call
 }
 
-// AttachSNATBPF is a helper method to define mock.On call
+// AttachHostVethBPF is a helper method to define mock.On call
 //   - ifaceName string
-func (_e *MockPtpnatHandler_Expecter) AttachSNATBPF(ifaceName interface{}) *MockPtpnatHandler_AttachSNATBPF_Call {
-	return &MockPtpnatHandler_AttachSNATBPF_Call{Call: _e.mock.On("AttachSNATBPF", ifaceName)}
+func (_e *MockPtpnatHandler_Expecter) AttachHostVethBPF(ifaceName interface{}) *MockPtpnatHandler_AttachHostVethBPF_Call {
+	return &MockPtpnatHandler_AttachHostVethBPF_Call{Call: _e.mock.On("AttachHostVethBPF", ifaceName)}
 }
 
-func (_c *MockPtpnatHandler_AttachSNATBPF_Call) Run(run func(ifaceName string)) *MockPtpnatHandler_AttachSNATBPF_Call {
+func (_c *MockPtpnatHandler_AttachHostVethBPF_Call) Run(run func(ifaceName string)) *MockPtpnatHandler_AttachHostVethBPF_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *MockPtpnatHandler_AttachSNATBPF_Call) Return(_a0 error) *MockPtpnatHandler_AttachSNATBPF_Call {
+func (_c *MockPtpnatHandler_AttachHostVethBPF_Call) Return(_a0 error) *MockPtpnatHandler_AttachHostVethBPF_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *MockPtpnatHandler_AttachSNATBPF_Call) RunAndReturn(run func(string) error) *MockPtpnatHandler_AttachSNATBPF_Call {
+func (_c *MockPtpnatHandler_AttachHostVethBPF_Call) RunAndReturn(run func(string) error) *MockPtpnatHandler_AttachHostVethBPF_Call {
 	_c.Call.Return(run)
 	return _c
 }

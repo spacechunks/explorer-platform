@@ -87,7 +87,7 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("configure veth pair: %w", err)
 	}
 
-	if err := c.handler.AttachSNATBPF(hostVethName); err != nil {
+	if err := c.handler.AttachHostVethBPF(hostVethName); err != nil {
 		return fmt.Errorf("attach snat: %w", err)
 	}
 
