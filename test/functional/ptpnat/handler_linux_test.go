@@ -127,7 +127,7 @@ func TestBPFAttach(t *testing.T) {
 			pinPrefix:          "snat_",
 			expectedAttachType: 46,
 			attach: func(t *testing.T, h ptpnat.Handler, ifaceName string) {
-				require.NoError(t, h.AttachSNATBPF(ifaceName))
+				require.NoError(t, h.AttachHostVethBPF(ifaceName))
 			},
 		},
 	}
