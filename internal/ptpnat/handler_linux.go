@@ -22,12 +22,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
 	"golang.org/x/sys/unix"
 	"net"
 	"net/netip"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -38,7 +37,8 @@ import (
 
 type Handler interface {
 	CreateAndConfigureVethPair(netNS string, ips []*current.IPConfig) (string, string, error)
-	AttachSNATBPF(ifaceName string) error
+	// AttachHostVethBPF installs all BPF programs intended for the host-side veth peer
+	AttachHostVethBPF(ifaceName string) error
 	// TODO: check if we really need to request an ip address
 	//       from ipam plugin, because our ingress bpf program will
 	//       take care of redirecting the packet to the correct iface.
@@ -58,33 +58,18 @@ func NewHandler() Handler {
 	return &cniHandler{}
 }
 
-func (h *cniHandler) AttachSNATBPF(ifaceName string) error {
+func (h *cniHandler) AttachHostVethBPF(ifaceName string) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("get iface: %w", err)
 	}
 
-	var snatProgs snatPrograms
-	if err := loadSnatObjects(&snatProgs, &ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{
-			PinPath: pinPath,
-		},
-	}); err != nil {
-		return fmt.Errorf("load snat objs: %w", err)
+	if err := gobpf.AttachAndPinSNAT(ifaceName, iface.Index, pinPath); err != nil {
+		return fmt.Errorf("attach snat bpf: %w", err)
 	}
 
-	l, err := link.AttachTCX(link.TCXOptions{
-		Interface: iface.Index,
-		Program:   snatProgs.Snat,
-		Attach:    ebpf.AttachTCXIngress,
-	})
-	if err != nil {
-		return fmt.Errorf("attach snat: %w", err)
-	}
-
-	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/ptp_snat_%s", ifaceName)); err != nil {
-		return fmt.Errorf("pin link: %w", err)
+	if err := gobpf.AttachAndPinARP(ifaceName, iface.Index); err != nil {
+		return fmt.Errorf("attach arp bpf: %w", err)
 	}
 
 	return nil
@@ -148,28 +133,8 @@ func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
 		return fmt.Errorf("get iface: %w", err)
 	}
 
-	var dnatObjs dnatObjects
-	if err := loadDnatObjects(&dnatObjs, &ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{
-			PinPath: pinPath,
-		},
-	}); err != nil {
-		return fmt.Errorf("load dnat objs: %w", err)
-	}
-
-	// TODO: if link is already present just update
-	l, err := link.AttachTCX(link.TCXOptions{
-		Interface: iface.Index,
-		Program:   dnatObjs.Dnat,
-		Attach:    ebpf.AttachTCXIngress,
-	})
-	if err != nil {
-		return fmt.Errorf("attach dnat: %w", err)
-	}
-
-	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/ptp_dnat_%s", ifaceName)); err != nil {
-		return fmt.Errorf("pin link: %w", err)
+	if err := gobpf.AttachAndPinDNAT(ifaceName, iface.Index, pinPath); err != nil {
+		return fmt.Errorf("attach dnat bpf: %w", err)
 	}
 
 	return nil
@@ -195,7 +160,7 @@ func (h *cniHandler) ConfigureSNAT(ifaceName string) error {
 		return fmt.Errorf("parse addr: %w", err)
 	}
 
-	if err := AddSNATTarget(0, prefix.Addr(), uint8(iface.Index)); err != nil {
+	if err := gobpf.AddSNATTarget(0, prefix.Addr(), uint8(iface.Index), pinPath); err != nil {
 		return fmt.Errorf("add snat target: %w", err)
 	}
 	return nil
