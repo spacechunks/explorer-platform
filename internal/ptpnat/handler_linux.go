@@ -207,7 +207,7 @@ func (h *cniHandler) AddDefaultRoute(nsPath string) error {
 		// we also do not need to specify the device, the kernel
 		// will figure this out for us.
 		if err := netlink.RouteAdd(&netlink.Route{
-			Gw:     ContainerIP4CIDR.IP,
+			Gw:     PodVethCIDR.IP,
 			Family: unix.AF_INET,
 			Scope:  netlink.SCOPE_LINK,
 		}); err != nil {
@@ -222,7 +222,7 @@ func (h *cniHandler) AddDefaultRoute(nsPath string) error {
 
 func configureCTRIface(ctrNS ns.NetNS, ifaceName string) error {
 	if err := ctrNS.Do(func(ns.NetNS) error {
-		return configureIface(ifaceName, ContainerIP4CIDR)
+		return configureIface(ifaceName, PodVethCIDR, nil)
 	}); err != nil {
 		return fmt.Errorf("ctr ns: %w", err)
 	}
@@ -231,14 +231,16 @@ func configureCTRIface(ctrNS ns.NetNS, ifaceName string) error {
 
 func configureHostIface(ips []*current.IPConfig, ifaceName string) error {
 	for _, ip := range ips {
-		if err := configureIface(ifaceName, &ip.Address); err != nil {
+		if err := configureIface(ifaceName, &ip.Address, &HostVethMAC); err != nil {
 			return fmt.Errorf("configure iface (%s): %w", ip.String(), err)
 		}
 	}
 	return nil
 }
 
-func configureIface(ifaceName string, ipNet *net.IPNet) error {
+// configureIface sets the given ip and optionally also the mac address.
+// if mac is nil the hardware address will not be set.
+func configureIface(ifaceName string, ipNet *net.IPNet, mac *net.HardwareAddr) error {
 	l, err := netlink.LinkByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("lookup link: %w", err)
@@ -246,6 +248,12 @@ func configureIface(ifaceName string, ipNet *net.IPNet) error {
 
 	if err := netlink.AddrAdd(l, &netlink.Addr{IPNet: ipNet}); err != nil {
 		return fmt.Errorf("add addr: %w", err)
+	}
+
+	if mac != nil {
+		if err := netlink.LinkSetHardwareAddr(l, *mac); err != nil {
+			return fmt.Errorf("set hardware addr: %w", err)
+		}
 	}
 
 	if err := netlink.LinkSetUp(l); err != nil {

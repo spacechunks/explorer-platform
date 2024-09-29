@@ -105,3 +105,13 @@ func RequireAddrConfigured(t *testing.T, ifaceName, expectedAddr string) {
 	}
 	t.Fatalf("expected %s to be configured", expectedAddr)
 }
+
+func RequireMACConfigured(t *testing.T, ifaceName, expectedMAC string) {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		t.Fatalf("get iface by name (%s): %v", ifaceName, err)
+	}
+	if iface.HardwareAddr.String() != expectedMAC {
+		t.Fatalf("expected %s got %s", expectedMAC, iface.HardwareAddr.String())
+	}
+}

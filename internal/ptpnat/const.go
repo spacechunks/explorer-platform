@@ -31,8 +31,20 @@ const (
 )
 
 var (
-	ContainerIP4CIDR = mustParseCIDR("10.0.0.1/24")
+	// PodVethCIDR is the IPv4 CIDR configured for the pod-side veth
+	PodVethCIDR = mustParseCIDR("10.0.0.1/24")
+
+	// HostVethMAC is the mac address configured for the host-side veth
+	HostVethMAC = mustParseMAC("7e:90:c4:ed:df:d0")
 )
+
+func mustParseMAC(s string) net.HardwareAddr {
+	mac, err := net.ParseMAC(s)
+	if err != nil {
+		panic(err)
+	}
+	return mac
+}
 
 func mustParseCIDR(cidr string) *net.IPNet {
 	ip, ipNet, err := net.ParseCIDR(cidr)

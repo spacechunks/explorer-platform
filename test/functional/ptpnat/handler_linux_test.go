@@ -58,9 +58,9 @@ var stdinData = []byte(`
 
 // TODO: remove below code and instead write functional test for cni.go
 
-// TestSetup tests that ip addresses cloud be allocated
+// TestSetup tests that ip address and mac adress could be allocated
 // and configured on the veth-pairs.
-func TestSetup(t *testing.T) {
+func TestIfaceConfig(t *testing.T) {
 	var (
 		created, origin, name = ptptesting.CreateNetns(t)
 		h                     = ptpnat.NewHandler()
@@ -94,13 +94,15 @@ func TestSetup(t *testing.T) {
 	require.Equal(t, ptpnat.VethMTU, podVeth.Attrs().MTU)
 
 	err = ns.WithNetNSPath(nsPath, func(netNS ns.NetNS) error {
-		ptptesting.RequireAddrConfigured(t, podVethName, ptpnat.ContainerIP4)
+		ptptesting.RequireAddrConfigured(t, podVethName, ptpnat.PodVethCIDR.IP.String())
 		return nil
 	})
 	require.NoError(t, err)
 
 	require.NoError(t, netns.Set(origin))
 	ptptesting.RequireAddrConfigured(t, hostVethName, ips[0].Address.String())
+	ptptesting.RequireMACConfigured(t, hostVethName, ptpnat.HostVethMAC)
+
 }
 
 func TestBPFAttach(t *testing.T) {
@@ -185,15 +187,12 @@ func TestConfigureSNAT(t *testing.T) {
 			tt.prep(t, veth)
 			defer netlink.LinkDel(veth)
 
-			iface, err := net.InterfaceByName(ifaceName)
-			require.NoError(t, err)
-
 			if tt.err != nil {
-				require.EqualError(t, h.ConfigureSNAT(iface), tt.err.Error())
+				require.EqualError(t, h.ConfigureSNAT(ifaceName), tt.err.Error())
 				return
 			}
 
-			require.NoError(t, h.ConfigureSNAT(iface))
+			require.NoError(t, h.ConfigureSNAT(ifaceName))
 
 			conf, err := ebpf.LoadPinnedMap("/sys/fs/bpf/ptp_snat_config", nil)
 			require.NoError(t, err)
