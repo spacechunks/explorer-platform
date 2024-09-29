@@ -22,11 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	current "github.com/containernetworking/cni/pkg/types/100"
-	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
 	"log"
-	"net"
-	"net/netip"
 	"os"
 
 	"github.com/containernetworking/cni/pkg/skel"
@@ -102,30 +98,6 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 	if err := c.handler.AddDefaultRoute(args.Netns); err != nil {
 		return fmt.Errorf("add default route: %w", err)
 	}
-
-	// TEST START
-	var hwAddr net.HardwareAddr
-	ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
-		iface, err := net.InterfaceByName(podVethName)
-		if err != nil {
-			return err
-		}
-		hwAddr = iface.HardwareAddr
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	h, err := net.InterfaceByName(hostVethName)
-	if err != nil {
-		return fmt.Errorf("get host veth name: %w", err)
-	}
-	if err := gobpf.AddDNATTarget(
-		uint16(80), netip.MustParseAddr("10.0.0.1"), uint8(h.Index), hwAddr, pinPath,
-	); err != nil {
-		return fmt.Errorf("add dnat target: %w", err)
-	}
-	// TEST END
 
 	result := &current.Result{
 		CNIVersion: supportedCNIVersion,
