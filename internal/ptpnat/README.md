@@ -15,6 +15,10 @@ This program will be run on main on the main physical interface, specifically TC
 Redirect arriving packets to main physical interface by changing source IP address.
 This program will be run on the host-side veth peer, specifically TC ingress.
 
+**`arp.c`**
+Respond to ARP requests coming from the pod-side veth peer with the host-side peers MAC address.
+This program will be run on the host-side veth peer, specifically TC ingress.
+
 **includes**
 * `include/bpf`
   * libbpf headers copied using the latest stable version.
