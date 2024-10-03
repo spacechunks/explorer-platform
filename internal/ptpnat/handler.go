@@ -22,15 +22,15 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
-	"golang.org/x/sys/unix"
 	"net"
 	"net/netip"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 // just for reference: _ctr_ is short for _container_
@@ -52,10 +52,18 @@ type Handler interface {
 }
 
 type cniHandler struct {
+	bpf *gobpf.Objects
 }
 
-func NewHandler() Handler {
-	return &cniHandler{}
+func NewHandler() (Handler, error) {
+	objs, err := gobpf.LoadObjects()
+	if err != nil {
+		return nil, err
+	}
+
+	return &cniHandler{
+		bpf: objs,
+	}, nil
 }
 
 func (h *cniHandler) AttachHostVethBPF(ifaceName string) error {
@@ -64,11 +72,11 @@ func (h *cniHandler) AttachHostVethBPF(ifaceName string) error {
 		return fmt.Errorf("get iface: %w", err)
 	}
 
-	if err := gobpf.AttachAndPinSNAT(ifaceName, iface.Index, pinPath); err != nil {
+	if err := h.bpf.AttachAndPinSNAT(ifaceName, iface.Index); err != nil {
 		return fmt.Errorf("attach snat bpf: %w", err)
 	}
 
-	if err := gobpf.AttachAndPinARP(ifaceName, iface.Index); err != nil {
+	if err := h.bpf.AttachAndPinARP(ifaceName, iface.Index); err != nil {
 		return fmt.Errorf("attach arp bpf: %w", err)
 	}
 
@@ -93,11 +101,11 @@ func (h *cniHandler) CreateAndConfigureVethPair(netNS string, ips []*current.IPC
 
 	defer ctrNS.Close()
 
-	if err := configureCTRIface(ctrNS, podVethName); err != nil {
+	if err := configureCTRPeer(ctrNS, podVethName); err != nil {
 		return "", "", fmt.Errorf("setup ctr side veth: %w", err)
 	}
 
-	if err := configureHostIface(ips, hostVethName); err != nil {
+	if err := configureHostPeer(ips, hostVethName); err != nil {
 		return "", "", fmt.Errorf("setup host side veth: %w", err)
 	}
 
@@ -133,7 +141,7 @@ func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
 		return fmt.Errorf("get iface: %w", err)
 	}
 
-	if err := gobpf.AttachAndPinDNAT(ifaceName, iface.Index, pinPath); err != nil {
+	if err := h.bpf.AttachAndPinDNAT(ifaceName, iface.Index); err != nil {
 		return fmt.Errorf("attach dnat bpf: %w", err)
 	}
 
@@ -160,7 +168,7 @@ func (h *cniHandler) ConfigureSNAT(ifaceName string) error {
 		return fmt.Errorf("parse addr: %w", err)
 	}
 
-	if err := gobpf.AddSNATTarget(0, prefix.Addr(), uint8(iface.Index), pinPath); err != nil {
+	if err := h.bpf.AddSNATTarget(0, prefix.Addr(), uint8(iface.Index)); err != nil {
 		return fmt.Errorf("add snat target: %w", err)
 	}
 	return nil
@@ -185,7 +193,7 @@ func (h *cniHandler) AddDefaultRoute(nsPath string) error {
 	return nil
 }
 
-func configureCTRIface(ctrNS ns.NetNS, ifaceName string) error {
+func configureCTRPeer(ctrNS ns.NetNS, ifaceName string) error {
 	if err := ctrNS.Do(func(ns.NetNS) error {
 		return configureIface(ifaceName, PodVethCIDR, nil)
 	}); err != nil {
@@ -194,12 +202,14 @@ func configureCTRIface(ctrNS ns.NetNS, ifaceName string) error {
 	return nil
 }
 
-func configureHostIface(ips []*current.IPConfig, ifaceName string) error {
-	for _, ip := range ips {
-		if err := configureIface(ifaceName, &ip.Address, &HostVethMAC); err != nil {
-			return fmt.Errorf("configure iface (%s): %w", ip.String(), err)
-		}
+func configureHostPeer(ips []*current.IPConfig, ifaceName string) error {
+	ip := ips[0].Address
+	if err := configureIface(ifaceName, &ip, &HostVethMAC); err != nil {
+		return fmt.Errorf("configure iface (%s): %w", ip.String(), err)
 	}
+	/*for _, ip := range ips {
+
+	}*/
 	return nil
 }
 
@@ -215,6 +225,13 @@ func configureIface(ifaceName string, ipNet *net.IPNet, mac *net.HardwareAddr) e
 		return fmt.Errorf("add addr: %w", err)
 	}
 
+	// When using systemd `MacAddressPolicy` needs to be set to `none`.
+	// Otherwise, there appears to be a race condition where our configured
+	// mac address will not be picked up. This is because since version 242,
+	// systemd will set a persistent mac address on virtual interfaces.
+	// see
+	// * https://lore.kernel.org/netdev/CAHXsExy+zm+twpC9Qrs9myBre+5s_ApGzOYU45Pt=sw-FyOn1w@mail.gmail.com/
+	// * https://github.com/Mellanox/mlxsw/wiki/Persistent-Configuration#required-changes-to-macaddresspolicy
 	if mac != nil {
 		if err := netlink.LinkSetHardwareAddr(l, *mac); err != nil {
 			return fmt.Errorf("set hardware addr: %w", err)
@@ -222,7 +239,7 @@ func configureIface(ifaceName string, ipNet *net.IPNet, mac *net.HardwareAddr) e
 	}
 
 	if err := netlink.LinkSetUp(l); err != nil {
-		return fmt.Errorf("link up: %w", err)
+		return fmt.Errorf("link up again: %w", err)
 	}
 
 	return nil
@@ -241,16 +258,16 @@ func createAndMoveVethPair(hostVethName, podVethName, netNS string) (ns.NetNS, e
 		return nil, fmt.Errorf("add veth: %w", err)
 	}
 
-	ctr, err := ns.GetNS(netNS)
+	ctrNS, err := ns.GetNS(netNS)
 	if err != nil {
 		return nil, fmt.Errorf("get netns fd: %w", err)
 	}
 
-	if err := netlink.LinkSetNsFd(vethpair, int(ctr.Fd())); err != nil {
-		return nil, fmt.Errorf("move pod veth to ns %d: %w", ctr, err)
+	if err := netlink.LinkSetNsFd(vethpair, int(ctrNS.Fd())); err != nil {
+		return nil, fmt.Errorf("move pod veth to ns %d: %w", ctrNS, err)
 	}
 
-	return ctr, nil
+	return ctrNS, nil
 }
 
 func randHexStr() (string, error) {

@@ -16,16 +16,16 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package ptpnat
+package test
 
 import (
-	"log"
 	"net"
 	"os"
 	"runtime"
 	"testing"
 
-	"github.com/spacechunks/platform/test"
+	"github.com/containernetworking/plugins/pkg/ns"
+
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -39,17 +39,18 @@ func SetCNIEnvVars(containerID, ifname, cniNetNS string) {
 	_ = os.Setenv("CNI_NETNS", cniNetNS)
 }
 
-func CreateNetns(t *testing.T) (netns.NsHandle, netns.NsHandle, string) {
+func CreateNetns(t *testing.T) (netns.NsHandle, string) {
 	// lock the OS Thread, so we don't accidentally switch namespaces
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	// generate random netns name to avoid collisions
 	// when running multiple tests at once.
-	name := test.RandHexStr(t)
+	name := RandHexStr(t)
 	origin, err := netns.Get()
 	if err != nil {
 		t.Fatalf("create netns: %v", err)
 	}
+
 	handle, err := netns.NewNamed(name)
 	if err != nil {
 		t.Fatalf("create netns: %v", err)
@@ -57,26 +58,29 @@ func CreateNetns(t *testing.T) (netns.NsHandle, netns.NsHandle, string) {
 	if err := netns.Set(origin); err != nil {
 		t.Fatalf("set netns: %v", err)
 	}
-	return handle, origin, name
+	return handle, name
 }
 
-func GetLinkByNS(t *testing.T, name string, h netns.NsHandle) netlink.Link {
-	if err := netns.Set(h); err != nil {
-		t.Fatalf("switch netns (%d): %v", int(h), err)
-	}
-	l, err := netlink.LinkByName(name)
-	if err != nil {
-		t.Fatalf("get link by name (%s): %v", name, err)
-	}
+func GetLinkByNS(t *testing.T, name string, nsPath string) netlink.Link {
+	var l netlink.Link
+	err := ns.WithNetNSPath(nsPath, func(_ ns.NetNS) error {
+		tmp, err := netlink.LinkByName(name)
+		if err != nil {
+			t.Fatalf("get link by name (%s): %v", name, err)
+		}
+		l = tmp
+		return nil
+	})
+	require.NoError(t, err)
 	return l
 }
 
 // AddRandVethPair adds a veth pair with a random name.
 // This is mostly used for tests where a dummy network
 // interface is needed.
-func AddRandVethPair(t *testing.T) (string, netlink.Link) {
+func AddRandVethPair(t *testing.T) (*net.Interface, netlink.Link) {
 	var (
-		ifaceName = test.RandHexStr(t)
+		ifaceName = RandHexStr(t)
 		vethpair  = &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: ifaceName,
@@ -84,9 +88,11 @@ func AddRandVethPair(t *testing.T) (string, netlink.Link) {
 			PeerName: ifaceName + "-p",
 		}
 	)
-	log.Println(ifaceName)
 	require.NoError(t, netlink.LinkAdd(vethpair))
-	return ifaceName, vethpair
+	iface, err := net.InterfaceByName(ifaceName)
+	require.NoError(t, err)
+
+	return iface, vethpair
 }
 
 func RequireAddrConfigured(t *testing.T, ifaceName, expectedAddr string) {
@@ -104,14 +110,4 @@ func RequireAddrConfigured(t *testing.T, ifaceName, expectedAddr string) {
 		}
 	}
 	t.Fatalf("expected %s to be configured", expectedAddr)
-}
-
-func RequireMACConfigured(t *testing.T, ifaceName, expectedMAC string) {
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		t.Fatalf("get iface by name (%s): %v", ifaceName, err)
-	}
-	if iface.HardwareAddr.String() != expectedMAC {
-		t.Fatalf("expected %s got %s", expectedMAC, iface.HardwareAddr.String())
-	}
 }

@@ -23,11 +23,9 @@ import (
 	"net"
 	"testing"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spacechunks/platform/internal/ptpnat"
-	ptptesting "github.com/spacechunks/platform/test/functional/ptpnat"
+	"github.com/spacechunks/platform/test"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -56,27 +54,26 @@ var stdinData = []byte(`
 }
 `)
 
-// TODO: remove below code and instead write functional test for cni.go
-
 // TestSetup tests that ip address and mac adress could be allocated
 // and configured on the veth-pairs.
 func TestIfaceConfig(t *testing.T) {
 	var (
-		created, origin, name = ptptesting.CreateNetns(t)
-		h                     = ptpnat.NewHandler()
-		ctrID                 = "ABC"
-		nsPath                = "/var/run/netns/" + name
+		handle, name = test.CreateNetns(t)
+		ctrID        = "ABC"
+		nsPath       = "/var/run/netns/" + name
 	)
 
+	h, err := ptpnat.NewHandler()
+	require.NoError(t, err)
+
 	defer func() {
-		created.Close()
-		origin.Close()
-		netns.DeleteNamed(name)
 		h.DeallocIPs("host-local", stdinData)
+		handle.Close()
+		netns.DeleteNamed(name)
 	}()
 
 	// host-local cni plugin requires container id
-	ptptesting.SetCNIEnvVars(ctrID, "ignored", "ignored")
+	test.SetCNIEnvVars(ctrID, "ignored", nsPath)
 
 	ips, err := h.AllocIPs("host-local", stdinData)
 	require.NoError(t, err)
@@ -84,73 +81,23 @@ func TestIfaceConfig(t *testing.T) {
 	hostVethName, podVethName, err := h.CreateAndConfigureVethPair(nsPath, ips)
 	require.NoError(t, err)
 
-	var (
-		hostVeth = ptptesting.GetLinkByNS(t, hostVethName, origin)
-		podVeth  = ptptesting.GetLinkByNS(t, podVethName, created)
-	)
+	podVeth := test.GetLinkByNS(t, podVethName, nsPath)
+
+	hostVeth, err := netlink.LinkByName(hostVethName)
+	require.NoError(t, err)
 
 	require.NotNil(t, podVeth, "pod veth not found")
 	require.NotNil(t, hostVeth, "host veth not found")
 	require.Equal(t, ptpnat.VethMTU, podVeth.Attrs().MTU)
 
 	err = ns.WithNetNSPath(nsPath, func(netNS ns.NetNS) error {
-		ptptesting.RequireAddrConfigured(t, podVethName, ptpnat.PodVethCIDR.IP.String())
+		test.RequireAddrConfigured(t, podVethName, ptpnat.PodVethCIDR.String())
 		return nil
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, netns.Set(origin))
-	ptptesting.RequireAddrConfigured(t, hostVethName, ips[0].Address.String())
-	ptptesting.RequireMACConfigured(t, hostVethName, ptpnat.HostVethMAC)
-
-}
-
-func TestBPFAttach(t *testing.T) {
-	tests := []struct {
-		name               string
-		pinPrefix          string
-		expectedAttachType uint32
-		attach             func(*testing.T, ptpnat.Handler, string)
-	}{
-		{
-			name:      "attach dnat",
-			pinPrefix: "dnat_",
-			// BPF_TCX_INGRESS
-			// see https://github.com/cilium/ebpf/blob/625b0a910e1ba666e483e75b149880ce3b54dc85/internal/sys/types.go#L229
-			expectedAttachType: 46,
-			attach: func(t *testing.T, h ptpnat.Handler, ifaceName string) {
-				require.NoError(t, h.AttachDNATBPF(ifaceName))
-			},
-		},
-		{
-			name:               "attach snat",
-			pinPrefix:          "snat_",
-			expectedAttachType: 46,
-			attach: func(t *testing.T, h ptpnat.Handler, ifaceName string) {
-				require.NoError(t, h.AttachHostVethBPF(ifaceName))
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ifaceName, veth := ptptesting.AddRandVethPair(t)
-			defer netlink.LinkDel(veth)
-
-			h := ptpnat.NewHandler()
-			tt.attach(t, h, ifaceName)
-
-			l, err := link.LoadPinnedLink("/sys/fs/bpf/ptp_"+tt.pinPrefix+ifaceName, &ebpf.LoadPinOptions{})
-			require.NoError(t, err)
-
-			defer l.Unpin()
-
-			info, err := l.Info()
-			require.NoError(t, err)
-
-			require.Equal(t, tt.expectedAttachType, uint32(info.TCX().AttachType))
-		})
-	}
+	test.RequireAddrConfigured(t, hostVethName, ips[0].Address.String())
+	require.Equal(t, ptpnat.HostVethMAC.String(), hostVeth.Attrs().HardwareAddr.String())
 }
 
 func TestConfigureSNAT(t *testing.T) {
@@ -179,42 +126,20 @@ func TestConfigureSNAT(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var (
-				h               = ptpnat.NewHandler()
-				ifaceName, veth = ptptesting.AddRandVethPair(t)
-			)
+			iface, veth := test.AddRandVethPair(t)
+
+			h, err := ptpnat.NewHandler()
+			require.NoError(t, err)
 
 			tt.prep(t, veth)
 			defer netlink.LinkDel(veth)
 
 			if tt.err != nil {
-				require.EqualError(t, h.ConfigureSNAT(ifaceName), tt.err.Error())
+				require.EqualError(t, h.ConfigureSNAT(iface.Name), tt.err.Error())
 				return
 			}
 
-			require.NoError(t, h.ConfigureSNAT(ifaceName))
-
-			conf, err := ebpf.LoadPinnedMap("/sys/fs/bpf/ptp_snat_config", nil)
-			require.NoError(t, err)
-
-			defer conf.Unpin()
-
-			// copied from one of the generated snat_bpf*.go files
-			type ptpSnatEntry struct {
-				IpAddr   uint32
-				IfaceIdx uint8
-				_        [3]byte
-			}
-
-			expected := ptpSnatEntry{
-				IpAddr:   16777226, // 10.0.0.1 in little endian decimal
-				IfaceIdx: 3,
-			}
-
-			var actual ptpSnatEntry
-			require.NoError(t, conf.Lookup(uint8(0), &actual))
-
-			require.Equal(t, expected, actual)
+			require.NoError(t, h.ConfigureSNAT(iface.Name))
 		})
 	}
 }

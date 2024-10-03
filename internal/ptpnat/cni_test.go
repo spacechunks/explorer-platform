@@ -1,5 +1,3 @@
-//go:build linux
-
 /*
 Explorer Platform, a platform for hosting and discovering Minecraft servers.
 Copyright (C) 2024 Yannic Rieger <oss@76k.io>
@@ -33,10 +31,6 @@ import (
 	current "github.com/containernetworking/cni/pkg/types/100"
 )
 
-// TODO:
-// * new test cases with missing hostname and missing ipam config
-// * test that correct stdout output is emitted
-
 func TestExecAdd(t *testing.T) {
 	tests := []struct {
 		name string
@@ -49,7 +43,7 @@ func TestExecAdd(t *testing.T) {
 			args: &skel.CmdArgs{
 				ContainerID: "abc",
 				Netns:       "/path/to/netns",
-				StdinData:   []byte(`{"ipam":{"type":"host-local"}}`),
+				StdinData:   []byte(`{"hostIface":"eth0","ipam":{"type":"host-local"}}`),
 			},
 			prep: func(h *mock.MockPtpnatHandler, args *skel.CmdArgs) {
 				ips := []*current.IPConfig{
@@ -60,6 +54,9 @@ func TestExecAdd(t *testing.T) {
 					},
 				}
 				h.EXPECT().
+					AttachDNATBPF("eth0").
+					Return(nil)
+				h.EXPECT().
 					AllocIPs("host-local", args.StdinData).
 					Return(ips, nil)
 				h.EXPECT().
@@ -68,21 +65,48 @@ func TestExecAdd(t *testing.T) {
 				h.EXPECT().
 					AttachHostVethBPF("hostVeth").
 					Return(nil)
+				h.EXPECT().
+					ConfigureSNAT("eth0").
+					Return(nil)
+				h.EXPECT().
+					AddDefaultRoute(args.Netns).
+					Return(nil)
 			},
 		},
 		{
 			name: "dealloc ips on error",
 			args: &skel.CmdArgs{
-				StdinData: []byte(`{"ipam":{"type":"host-local"}}`),
+				StdinData: []byte(`{"hostIface":"eth0","ipam":{"type":"host-local"}}`),
 			},
 			err: "alloc ips: some error",
 			prep: func(h *mock.MockPtpnatHandler, args *skel.CmdArgs) {
+				h.EXPECT().
+					AttachDNATBPF("eth0").
+					Return(nil)
 				h.EXPECT().
 					AllocIPs("host-local", args.StdinData).
 					Return(nil, errors.New("some error"))
 				h.EXPECT().
 					DeallocIPs("host-local", args.StdinData).
 					Return(nil)
+			},
+		},
+		{
+			name: "fail if hostIface is not set",
+			args: &skel.CmdArgs{
+				StdinData: []byte(`{"ipam":{"type":"host-local"}}`),
+			},
+			err: ptpnat.ErrHostIfaceNotFound.Error(),
+			prep: func(h *mock.MockPtpnatHandler, args *skel.CmdArgs) {
+			},
+		},
+		{
+			name: "fail if ipam config is not set",
+			args: &skel.CmdArgs{
+				StdinData: []byte(`{}`),
+			},
+			err: ptpnat.ErrIPAMConfigNotFound.Error(),
+			prep: func(h *mock.MockPtpnatHandler, args *skel.CmdArgs) {
 			},
 		},
 	}
