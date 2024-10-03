@@ -31,72 +31,51 @@ import (
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 dnat ../bpf/dnat.c -- -I ../bpf/include
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 arp ../bpf/arp.c -- -I ../bpf/include
 
-// TODO: tests
+const pinPath = "/sys/fs/bpf"
 
-func AttachAndPinSNAT(ifaceName string, ifaceIndex int, pinPath string) error {
-	var snatProgs snatPrograms
-	if err := loadSnatObjects(&snatProgs, &ebpf.CollectionOptions{
+type Objects struct {
+	snatObjs snatObjects
+	dnatObjs dnatObjects
+	arpObjs  arpObjects
+	pinPath  string
+}
+
+func LoadObjects() (*Objects, error) {
+	var snatObjs snatObjects
+	if err := loadSnatObjects(&snatObjs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
 			PinPath: pinPath,
 		},
 	}); err != nil {
-		return fmt.Errorf("load objs: %w", err)
-	}
-	l, err := link.AttachTCX(link.TCXOptions{
-		Interface: ifaceIndex,
-		Program:   snatProgs.Snat,
-		Attach:    ebpf.AttachTCXIngress,
-	})
-	if err != nil {
-		return fmt.Errorf("attach: %w", err)
+		return nil, fmt.Errorf("load snat objs: %w", err)
 	}
 
-	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/ptp_snat_%s", ifaceName)); err != nil {
-		return fmt.Errorf("pin link: %w", err)
-	}
-
-	return nil
-}
-
-func AttachAndPinDNAT(ifaceName string, ifaceIndex int, pinPath string) error {
 	var dnatObjs dnatObjects
 	if err := loadDnatObjects(&dnatObjs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
 			PinPath: pinPath,
 		},
 	}); err != nil {
-		return fmt.Errorf("load dnat objs: %w", err)
+		return nil, fmt.Errorf("load dnat objs: %w", err)
 	}
 
-	// TODO: if link is already present just update
-	l, err := link.AttachTCX(link.TCXOptions{
-		Interface: ifaceIndex,
-		Program:   dnatObjs.Dnat,
-		Attach:    ebpf.AttachTCXIngress,
-	})
-	if err != nil {
-		return fmt.Errorf("attach: %w", err)
-	}
-
-	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/ptp_dnat_%s", ifaceName)); err != nil {
-		return fmt.Errorf("pin link: %w", err)
-	}
-
-	return nil
-}
-
-func AttachAndPinARP(ifaceName string, ifaceIndex int) error {
 	var arpObjs arpObjects
 	if err := loadArpObjects(&arpObjs, nil); err != nil {
-		return fmt.Errorf("load dnat objs: %w", err)
+		return nil, fmt.Errorf("load arp objs: %w", err)
 	}
 
-	// TODO: if link is already present just update
+	return &Objects{
+		snatObjs: snatObjs,
+		dnatObjs: dnatObjs,
+		arpObjs:  arpObjs,
+		pinPath:  pinPath,
+	}, nil
+}
+
+func (o *Objects) AttachAndPinSNAT(ifaceName string, ifaceIndex int) error {
 	l, err := link.AttachTCX(link.TCXOptions{
 		Interface: ifaceIndex,
-		Program:   arpObjs.Arp,
+		Program:   o.snatObjs.Snat,
 		Attach:    ebpf.AttachTCXIngress,
 	})
 	if err != nil {
@@ -104,25 +83,52 @@ func AttachAndPinARP(ifaceName string, ifaceIndex int) error {
 	}
 
 	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("/sys/fs/bpf/ptp_arp_%s", ifaceName)); err != nil {
+	if err := l.Pin(fmt.Sprintf("%s/ptp_snat_%s", o.pinPath, ifaceName)); err != nil {
 		return fmt.Errorf("pin link: %w", err)
 	}
 
 	return nil
 }
 
-func AddDNATTarget(key uint16, ip netip.Addr, ifaceIdx uint8, mac net.HardwareAddr, pinPath string) error {
-	var maps dnatMaps
-	if err := loadDnatObjects(&maps, &ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{
-			PinPath: pinPath,
-		},
-	}); err != nil {
-		return fmt.Errorf("load maps: %w", err)
+func (o *Objects) AttachAndPinDNAT(ifaceName string, ifaceIndex int) error {
+	l, err := link.AttachTCX(link.TCXOptions{
+		Interface: ifaceIndex,
+		Program:   o.dnatObjs.Dnat,
+		Attach:    ebpf.AttachTCXIngress,
+	})
+	if err != nil {
+		return fmt.Errorf("attach: %w", err)
 	}
 
+	// pin because cni is short-lived
+	if err := l.Pin(fmt.Sprintf("%s/ptp_dnat_%s", o.pinPath, ifaceName)); err != nil {
+		return fmt.Errorf("pin link: %w", err)
+	}
+
+	return nil
+}
+
+func (o *Objects) AttachAndPinARP(ifaceName string, ifaceIndex int) error {
+	l, err := link.AttachTCX(link.TCXOptions{
+		Interface: ifaceIndex,
+		Program:   o.arpObjs.Arp,
+		Attach:    ebpf.AttachTCXIngress,
+	})
+	if err != nil {
+		return fmt.Errorf("attach: %w", err)
+	}
+
+	// pin because cni is short-lived
+	if err := l.Pin(fmt.Sprintf("%s/ptp_arp_%s", o.pinPath, ifaceName)); err != nil {
+		return fmt.Errorf("pin link: %w", err)
+	}
+
+	return nil
+}
+
+func (o *Objects) AddDNATTarget(key uint16, ip netip.Addr, ifaceIdx uint8, mac net.HardwareAddr) error {
 	sl := ip.As4()
-	if err := maps.PtpDnatTargets.Put(key, dnatDnatTarget{
+	if err := o.dnatObjs.PtpDnatTargets.Put(key, dnatDnatTarget{
 		IpAddr:   binary.BigEndian.Uint32(sl[:]), // network byte order is big endian
 		IfaceIdx: ifaceIdx,
 		MacAddr:  [6]byte(mac),
@@ -133,18 +139,9 @@ func AddDNATTarget(key uint16, ip netip.Addr, ifaceIdx uint8, mac net.HardwareAd
 	return nil
 }
 
-func AddSNATTarget(key uint8, ip netip.Addr, ifaceIdx uint8, pinPath string) error {
-	var maps snatMaps
-	if err := loadSnatObjects(&maps, &ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{
-			PinPath: pinPath,
-		},
-	}); err != nil {
-		return fmt.Errorf("load maps: %w", err)
-	}
-
+func (o *Objects) AddSNATTarget(key uint8, ip netip.Addr, ifaceIdx uint8) error {
 	sl := ip.As4()
-	if err := maps.PtpSnatConfig.Put(key, snatPtpSnatEntry{
+	if err := o.snatObjs.PtpSnatConfig.Put(key, snatPtpSnatEntry{
 		IpAddr:   binary.BigEndian.Uint32(sl[:]), // network byte order is big endian
 		IfaceIdx: ifaceIdx,
 	}); err != nil {

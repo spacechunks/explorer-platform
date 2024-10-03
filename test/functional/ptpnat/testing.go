@@ -19,7 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package ptpnat
 
 import (
-	"log"
 	"net"
 	"os"
 	"runtime"
@@ -74,7 +73,7 @@ func GetLinkByNS(t *testing.T, name string, h netns.NsHandle) netlink.Link {
 // AddRandVethPair adds a veth pair with a random name.
 // This is mostly used for tests where a dummy network
 // interface is needed.
-func AddRandVethPair(t *testing.T) (string, netlink.Link) {
+func AddRandVethPair(t *testing.T) (*net.Interface, netlink.Link) {
 	var (
 		ifaceName = test.RandHexStr(t)
 		vethpair  = &netlink.Veth{
@@ -84,9 +83,11 @@ func AddRandVethPair(t *testing.T) (string, netlink.Link) {
 			PeerName: ifaceName + "-p",
 		}
 	)
-	log.Println(ifaceName)
 	require.NoError(t, netlink.LinkAdd(vethpair))
-	return ifaceName, vethpair
+	iface, err := net.InterfaceByName(ifaceName)
+	require.NoError(t, err)
+
+	return iface, vethpair
 }
 
 func RequireAddrConfigured(t *testing.T, ifaceName, expectedAddr string) {

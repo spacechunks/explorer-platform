@@ -24,7 +24,6 @@ const (
 	VethMTU = 1400
 
 	supportedCNIVersion = "1.0.0"
-	pinPath             = "/sys/fs/bpf"
 )
 
 var (
