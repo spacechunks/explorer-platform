@@ -1,0 +1,33 @@
+linters-settings:
+  gofmt:
+    rewrite-rules:
+      - pattern: interface{}
+        replacement: any
+  misspell:
+    locale: US
+  exhaustive:
+    default-signifies-exhaustive: true
+  lll:
+    line-length: 120
+linters:
+  disable-all: true
+  enable:
+    - rowserrcheck
+    - exhaustive
+    - unparam
+    - gofmt
+    - lll
+    - gosimple
+    - goimports
+    - gomodguard
+    - errcheck
+    - whitespace
+    - staticcheck
+    - misspell
+    - typecheck
+    - bodyclose
+    - exhaustive
+    - unparam
+    - unused
+    - govet
+    - ineffassign

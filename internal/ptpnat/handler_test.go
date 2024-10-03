@@ -20,14 +20,15 @@ package ptpnat_test
 
 import (
 	"errors"
+	"net"
+	"testing"
+
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spacechunks/platform/internal/ptpnat"
 	"github.com/spacechunks/platform/test"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	"net"
-	"testing"
 )
 
 // we use github.com/vishvananda/netns library and

@@ -22,14 +22,15 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
+
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"net"
-	"net/netip"
 )
 
 // just for reference: _ctr_ is short for _container_

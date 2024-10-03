@@ -21,10 +21,11 @@ package gobpf
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 	"net"
 	"net/netip"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 )
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 snat ../bpf/snat.c -- -I ../bpf/include

@@ -19,11 +19,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package test
 
 import (
-	"github.com/containernetworking/plugins/pkg/ns"
 	"net"
 	"os"
 	"runtime"
 	"testing"
+
+	"github.com/containernetworking/plugins/pkg/ns"
 
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"

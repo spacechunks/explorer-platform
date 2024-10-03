@@ -22,13 +22,14 @@ package gobpf_test
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
 	"github.com/spacechunks/platform/test"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-	"testing"
 )
 
 func TestAttachBPFProgs(t *testing.T) {
