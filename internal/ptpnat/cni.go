@@ -20,6 +20,7 @@ package ptpnat
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"log"
@@ -27,6 +28,11 @@ import (
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
+)
+
+var (
+	ErrHostIfaceNotFound  = errors.New("host interface not set")
+	ErrIPAMConfigNotFound = errors.New("ipam config not set")
 )
 
 type Conf struct {
@@ -58,11 +64,11 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	if conf.IPAM == (types.IPAM{}) {
-		return fmt.Errorf("no IPAM configuration")
+		return ErrIPAMConfigNotFound
 	}
 
 	if conf.HostIface == "" {
-		return fmt.Errorf("hostIface config value not set")
+		return ErrHostIfaceNotFound
 	}
 
 	if err := c.handler.AttachDNATBPF(conf.HostIface); err != nil {
