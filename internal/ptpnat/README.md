@@ -3,6 +3,19 @@
 This is the CNI component of the platform stack. It basically performs port forwarding from the host to pods using 
 NAT technology. ptpnat -> port-to-pod-network-address-translation.
 
+When using systemd `MacAddressPolicy` needs to be set to `none`. Otherwise, there appears to be a race condition where our configured
+MAC address configured on the host-side veth peer will not be picked up. This is because since version 242, systemd will set a persistent 
+mac address on virtual interfaces. For more info see [here](https://lore.kernel.org/netdev/CAHXsExy+zm+twpC9Qrs9myBre+5s_ApGzOYU45Pt=sw-FyOn1w@mail.gmail.com/). 
+
+```
+# /etc/systemd/network/10-ignore.link
+[Match]
+OriginalName=*
+
+[Link]
+MACAddressPolicy=none
+```
+
 ## bpf
 
 Here is a quick explanation of what the purpose of our eBPF programs is.
@@ -27,3 +40,4 @@ This program will be run on the host-side veth peer, specifically TC ingress.
      files are stripped of any duplicate struct definitions.
 
 Having those directly in our repo ensures builds are not machine-dependent.
+
