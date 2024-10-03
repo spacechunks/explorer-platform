@@ -49,7 +49,7 @@ func NewEnv(t *testing.T, hcloudToken string) *Env {
 	}
 }
 
-// Setup the environment. Currently this is:
+// Setup the environment. Currently, this is:
 // * generating and configuring an ed25519 key pair
 func (e *Env) Setup(ctx context.Context) {
 	pub, priv, err := ed25519.GenerateKey(nil)

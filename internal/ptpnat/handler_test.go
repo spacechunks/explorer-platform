@@ -53,12 +53,9 @@ var stdinData = []byte(`
 }
 `)
 
-// TODO: test add default route
-
 // TestSetup tests that ip address and mac adress could be allocated
 // and configured on the veth-pairs.
 func TestIfaceConfig(t *testing.T) {
-
 	var (
 		handle, name = test.CreateNetns(t)
 		ctrID        = "ABC"

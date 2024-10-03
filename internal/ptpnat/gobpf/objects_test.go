@@ -1,3 +1,5 @@
+//go:build functests
+
 /*
 Explorer Platform, a platform for hosting and discovering Minecraft servers.
 Copyright (C) 2024 Yannic Rieger <oss@76k.io>
@@ -23,7 +25,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
-	ptptesting "github.com/spacechunks/platform/test/functional/ptpnat"
+	"github.com/spacechunks/platform/test"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"testing"
@@ -63,7 +65,7 @@ func TestAttachBPFProgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			iface, veth := ptptesting.AddRandVethPair(t)
+			iface, veth := test.AddRandVethPair(t)
 			defer netlink.LinkDel(veth)
 
 			require.NoError(t, tt.attach(iface.Name, iface.Index))
