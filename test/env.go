@@ -32,12 +32,11 @@ import (
 )
 
 type Env struct {
-	ID string
+	ID      string
+	Servers []*hcloud.Server
 
-	t      *testing.T
-	client *hcloud.Client
-
-	servers  []*hcloud.Server
+	t        *testing.T
+	client   *hcloud.Client
 	sshKeyID int64
 }
 
@@ -91,12 +90,12 @@ func (e *Env) CreateServer(ctx context.Context) string {
 			Name: "cax21",
 		},
 		Image: &hcloud.Image{
-			Name: "debian-12",
+			Name: "ubuntu-24.04",
 		},
 	})
 	require.NoError(e.t, err)
 
-	e.servers = append(e.servers, res.Server)
+	e.Servers = append(e.Servers, res.Server)
 	return res.Server.PublicNet.IPv4.IP.String()
 }
 
@@ -115,7 +114,7 @@ func (e *Env) Cleanup(ctx context.Context) {
 		e.t.Logf("error deleting ssh key %s: %v", e.ID, err)
 	}
 
-	for _, server := range e.servers {
+	for _, server := range e.Servers {
 		if _, _, err := e.client.Server.DeleteWithResult(ctx, server); err != nil {
 			e.t.Logf("error deleting server: %v", err)
 		}
