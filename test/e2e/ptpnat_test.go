@@ -21,12 +21,13 @@ package e2e
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
+	"github.com/bramvdbogaerde/go-scp"
+	"github.com/bramvdbogaerde/go-scp/auth"
+	"golang.org/x/crypto/ssh"
 	"io/fs"
-	"log"
+	"net/http"
 	"os"
-	"os/exec"
 	"testing"
 	"time"
 
@@ -42,7 +43,7 @@ func before(t *testing.T, ctx context.Context, testEnv *test.Env) {
 	testEnv.Setup(ctx)
 	addr := testEnv.CreateServer(ctx)
 	test.WaitServerReady(t, addr+":22", 1*time.Minute) // as soon as we can ssh we are ready
-	setup(t, testEnv, addr)
+	setup(t, ctx, testEnv, addr)
 }
 
 func TestPTPNAT(t *testing.T) {
@@ -52,10 +53,29 @@ func TestPTPNAT(t *testing.T) {
 	)
 	before(t, ctx, testEnv)
 
+	resp, err := http.Get("http://" + testEnv.Servers[0].PublicNet.IPv4.IP.String() + ":80")
+	require.NoError(t, err)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got %d, want %d", resp.StatusCode, http.StatusOK)
+	}
 }
 
-func setup(t *testing.T, env *test.Env, addr string) {
-	err := fs.WalkDir(nodedev.Files, ".", func(path string, d fs.DirEntry, err error) error {
+func setup(t *testing.T, ctx context.Context, env *test.Env, addr string) {
+	config, err := auth.PrivateKey(env.SSHUser(), env.PrivateKeyPath(), ssh.InsecureIgnoreHostKey())
+	require.NoError(t, err)
+
+	sshClient, err := ssh.Dial("tcp", addr+":22", &config)
+	require.NoError(t, err)
+
+	defer sshClient.Close()
+
+	scpClient, err := scp.NewClientBySSH(sshClient)
+	require.NoError(t, err)
+
+	defer scpClient.Close()
+
+	err = fs.WalkDir(nodedev.Files, ".", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil
 		}
@@ -65,52 +85,23 @@ func setup(t *testing.T, env *test.Env, addr string) {
 			return err
 		}
 
-		f, err := os.Create("/tmp/" + path)
-		if err != nil {
+		if err := scpClient.CopyFile(ctx, bytes.NewReader(data), path, "0777"); err != nil {
 			return err
 		}
 
-		if _, err := f.Write(data); err != nil {
-			return fmt.Errorf("write: %w", err)
-		}
-
-		_, _, err = runCMD(
-			fmt.Sprintf("scp -i /tmp/%s -r -o StrictHostKeyChecking=no %s root@%s:/root/%s", env.ID, f.Name(), addr, path),
-		)
-		if err != nil {
-			return fmt.Errorf("exec: %w", err)
-		}
 		return nil
 	})
 	require.NoError(t, err)
 
-	_, _, err = runCMD(fmt.Sprintf("ssh -i /tmp/%s -o StrictHostKeyChecking=no root@%s bash ./provision.sh", env.ID, addr))
+	sess, err := sshClient.NewSession()
 	require.NoError(t, err)
-}
 
-func runCMD(cmd string) (string, int, error) {
-	//parts := strings.Split(cmd, " ")
-	c := exec.Command("sh", "-c", cmd)
-	log.Println(c.String())
-	//c.Env = []
-	// keep this here in case we want to pipe
-	// something into stdin
-	//if len(in) > 0 {
-	//	c.Stdin = bytes.NewReader(in)
-	//}
-	// TODO: log files
-	var buf bytes.Buffer
-	var errbuf bytes.Buffer
-	c.Stdout = &buf
-	c.Stderr = &errbuf
+	defer sess.Close()
 
-	if err := c.Run(); err != nil {
-		log.Println(errbuf.String())
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			return "", exit.ExitCode(), fmt.Errorf("non-zero exit: %w", err)
-		}
-		return "", 0, fmt.Errorf("exit: %w", err)
+	out, err := sess.CombinedOutput("./provision-ptpnat.sh")
+	if err != nil {
+		fmt.Println(string(out))
+		fmt.Println("===")
+		t.Fatal(err)
 	}
-	return buf.String(), 0, nil
 }

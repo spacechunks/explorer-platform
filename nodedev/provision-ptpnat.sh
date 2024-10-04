@@ -54,19 +54,6 @@ systemctl start crio.service
 sysctl -w net.ipv4.ip_forward=1
 sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf # persist after reboot
 
-# criu
-wget https://github.com/checkpoint-restore/criu/archive/refs/tags/v3.19.tar.gz
-tar -xzvf v3.19.tar.gz
-export DEBIAN_FRONTEND=noninteractive
-apt install -y build-essential asciidoctor libprotobuf-dev
-apt install -y libprotobuf-c-dev protobuf-c-compiler protobuf-compiler
-apt install -y python3-protobuf pkg-config libbsd-dev
-apt install -y iproute2 libnftables-dev libgnutls28-dev
-apt install -y libnl-3-dev libnet-dev libcap-dev
-cd criu-3.19
-make install
-cd -
-
 # crictl
 VERSION=v1.30.1 # check latest version in /releases page
 ARCH=arm64
@@ -74,8 +61,10 @@ wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/cri
 sudo tar zxvf crictl-$VERSION-linux-$ARCH.tar.gz -C /usr/local/bin
 rm -f crictl-$VERSION-linux-$ARCH.tar.gz
 
-# run nginx pod
+cp ./10-ignore.link /etc/systemd/network/10-ignore.link
+systemctl restart systemd-networkd
+
 crictl pull docker.io/nginx:stable-alpine-slim
-pod=$(crictl -t 5m runp pod.json)
-ctr=$(crictl -t 5m create $pod ctr.json pod.json)
-crictl -t 5m start $ctr
+pod=$(crictl -t 1m runp pod.json)
+ctr=$(crictl -t 1m create $pod ctr.json pod.json)
+crictl -t 1m start $ctr
