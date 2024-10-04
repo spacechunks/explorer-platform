@@ -29,4 +29,4 @@ scp -r -o StrictHostKeyChecking=no nodedev/* root@$ip:/root
 # tcx requires at least 6.6
 ssh -o StrictHostKeyChecking=no root@$ip 'apt update && apt install -y linux-image-6.8.0-38-generic && reboot'
 sleep 20
-ssh -o StrictHostKeyChecking=no root@$ip '/root/provision.sh'
+ssh -o StrictHostKeyChecking=no root@$ip '/root/provision-full.sh'

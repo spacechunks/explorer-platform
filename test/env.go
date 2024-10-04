@@ -67,7 +67,7 @@ func (e *Env) Setup(ctx context.Context) {
 	})
 	require.NoError(e.t, err)
 
-	require.NoError(e.t, os.WriteFile("/tmp/"+e.ID, pem.EncodeToMemory(sshpriv), 0600))
+	require.NoError(e.t, os.WriteFile(e.PrivateKeyPath(), pem.EncodeToMemory(sshpriv), 0600))
 
 	// hcloud api requires us to use the key id instead of its name when creating a server,
 	// so in order to not having to do an extra api call simply set this value here.
@@ -98,6 +98,14 @@ func (e *Env) CreateServer(ctx context.Context) string {
 
 	e.servers = append(e.servers, res.Server)
 	return res.Server.PublicNet.IPv4.IP.String()
+}
+
+func (e *Env) PrivateKeyPath() string {
+	return "/tmp/" + e.ID
+}
+
+func (e *Env) SSHUser() string {
+	return "root"
 }
 
 func (e *Env) Cleanup(ctx context.Context) {
