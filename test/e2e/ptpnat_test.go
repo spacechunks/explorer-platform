@@ -26,6 +26,7 @@ import (
 	"github.com/bramvdbogaerde/go-scp/auth"
 	"golang.org/x/crypto/ssh"
 	"io/fs"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -51,6 +52,13 @@ func TestPTPNAT(t *testing.T) {
 		ctx     = context.Background()
 	)
 	before(t, ctx, testEnv)
+
+	resp, err := http.Get("http://" + testEnv.Servers[0].PublicNet.IPv4.IP.String() + ":80")
+	require.NoError(t, err)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got %d, want %d", resp.StatusCode, http.StatusOK)
+	}
 }
 
 func setup(t *testing.T, ctx context.Context, env *test.Env, addr string) {
