@@ -33,6 +33,25 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define SO_ORIGINAL_DST 80
 #define AF_INET         2
 
+struct veth_pair {
+    /* currently we only need host_if_index, host_if_addr */
+    __u32 host_if_index;
+    __be32 host_if_addr;
+};
+
+/*
+ * information about veth pairs can be retrieved
+ * using either the host peer or container peer
+ * if_index as key.
+ */
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32);
+    __type(value, struct veth_pair);
+    __uint(max_entries, 256);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+} veth_pair_map SEC(".maps");
+
 struct original_dst_entry {
     __be32 ip_addr;
     __be16 port;
@@ -49,14 +68,11 @@ struct {
 SEC("tc")
 int ctr_peer_egress(struct __sk_buff *ctx)
 {
-    // TODO: get ip address of current iface
-    //       use map[ctx->ifindex]
-
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
 
     if (ctx->protocol != bpf_htons(ETH_P_IP))
-        return TC_ACT_UNSPEC;
+        return TC_ACT_OK;
 
     struct iphdr *iph = data + ETH_HLEN;
     if (data + ETH_HLEN + sizeof(*iph) > data_end)
@@ -70,21 +86,24 @@ int ctr_peer_egress(struct __sk_buff *ctx)
     __u8 proto = iph->protocol;
     __be32 daddr = iph->daddr;
 
-    __be16 dport = get_port(&ctx, TCP_DPORT_OFF, UDP_DPORT_OFF, proto);
-    if (dport == 0) {
-        bpf_printk("tproxy: dst port: invalid protocol %d", proto);
-        return TC_ACT_OK;
-    }
+    if (proto != IPPROTO_TCP && proto != IPPROTO_UDP)
+        return TC_ACT_SHOT;
 
+    __be16 dport = get_port(&ctx, TCP_DPORT_OFF, UDP_DPORT_OFF, proto);
     __be16 sport = get_port(&ctx, TCP_SPORT_OFF, UDP_SPORT_OFF, proto);
-    if (sport == 0) {
-        bpf_printk("tproxy: src port: invalid protocol %d", proto);
-        return TC_ACT_OK;
-    }
 
     /* we only handle non minecraft-related traffic */
     if (sport == bpf_htons(MC_SERVER_PORT))
         return TC_ACT_OK;
+
+    __u32 if_idx = ctx->ifindex;
+    struct veth_pair *vp = bpf_map_lookup_elem(&veth_pair_map, &if_idx);
+    if (!vp) {
+        bpf_printk("tproxy: ctr egress: veth pair data not found (if_index: %d)", if_idx);
+        return TC_ACT_SHOT;
+    }
+
+    __be32 host_peer_addr = bpf_htonl(vp->host_if_addr);
 
     /*
      * use packed u64 as key for hash map, because when using a
@@ -101,16 +120,14 @@ int ctr_peer_egress(struct __sk_buff *ctx)
      * with the same error as previously.
      * pwru version used was v1.0.8.
      */
-    __u64 key = (0 /*TODO: veth pair id*/ << 24) | (sport << 8) | proto;
+    __u64 key = (host_peer_addr << 24) | (sport << 8) | proto;
     struct original_dst_entry val = {
         .port = dport,
         .ip_addr = daddr,
     };
 
     bpf_map_update_elem(&original_dst_map, &key, &val, BPF_ANY);
-
-    __be32 dest = bpf_htonl(167772162); // 10.0.0.2
-    rewrite_ip_addr(&ctx, dest, IP_DST_OFF, proto);
+    rewrite_ip_addr(&ctx, host_peer_addr, IP_DST_OFF, proto);
 
     if (dport == bpf_htons(DPORT_DNS)) {
         if (proto == IPPROTO_TCP)
@@ -143,13 +160,15 @@ int host_peer_egress(struct __sk_buff *ctx)
         return TC_ACT_OK;
 
     __u8 proto = iph->protocol;
+    __be32 daddr = iph->daddr;
+
     __be16 dport = get_port(&ctx, TCP_DPORT_OFF, UDP_DPORT_OFF, proto);
 
-    __u64 key = (0 << 24) | (dport << 8) | proto;
+    __u64 key = (daddr << 24) | (dport << 8) | proto;
     struct original_dst_entry *e = bpf_map_lookup_elem(&original_dst_map, &key);
-    if (e == NULL) {
+    if (!e) {
         bpf_printk("tproxy: egress: no entry for port %d/%d", proto, bpf_ntohs(dport));
-        return TC_ACT_OK;
+        return TC_ACT_SHOT;
     }
 
     rewrite_ip_addr(&ctx, e->ip_addr, IP_SRC_OFF, proto);
@@ -168,9 +187,9 @@ int getsockopt(struct bpf_sockopt *ctx)
     __be16 client_port = ctx->sk->dst_port;
     __u8 proto = ctx->sk->protocol;
 
-     __u64 key = (0 << 24) | (client_port << 8) | proto;
+     __u64 key = (ctx->sk->dst_ip4 << 24) | (client_port << 8) | proto;
     struct original_dst_entry *e = bpf_map_lookup_elem(&original_dst_map, &key);
-    if (e == NULL) {
+    if (!e) {
         bpf_printk("tproxy: getsockopt: no entry for port %d/%d", proto, bpf_ntohs(client_port));
         return 0;
     }

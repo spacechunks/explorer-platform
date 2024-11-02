@@ -1,6 +1,7 @@
 #pragma once
 
 #define TC_ACT_UNSPEC    (-1)
+#define TC_ACT_SHOT      2
 #define TC_ACT_OK        0
 #define IP_ADDR_LEN      4
 #define BPF_F_PSEUDO_HDR 0x10
