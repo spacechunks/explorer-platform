@@ -31,12 +31,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define DPORT_HTTP 80
 
 #define SO_ORIGINAL_DST 80
-#define AF_INET 2
-
-struct original_dst_key {
-    __u8 proto;
-    __be16 port;
-};
+#define AF_INET         2
 
 struct original_dst_entry {
     __be32 ip_addr;
@@ -45,14 +40,14 @@ struct original_dst_entry {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH); /* use LRU so we dont fill up the map */
-    __type(key, __be16); /* client source port */
+    __type(key, __u64);
     __type(value, struct original_dst_entry);
     __uint(max_entries, 10000);
     __uint(pinning, LIBBPF_PIN_BY_NAME);
 } original_dst_map SEC(".maps");
 
 SEC("tc")
-int ingress(struct __sk_buff *ctx)
+int ctr_peer_egress(struct __sk_buff *ctx)
 {
     // TODO: get ip address of current iface
     //       use map[ctx->ifindex]
@@ -87,20 +82,30 @@ int ingress(struct __sk_buff *ctx)
         return TC_ACT_OK;
     }
 
-/*
-    struct original_dst_key key = {
-        .proto = proto,
-        .port = sport,
-    };
-*/
+    /* we only handle non minecraft-related traffic */
+    if (sport == bpf_htons(MC_SERVER_PORT))
+        return TC_ACT_OK;
 
-     __be16 key = sport;
+    /*
+     * use packed u64 as key for hash map, because when using a
+     * struct as a key value things stopped working. bpf_map_lookup_elem in
+     * host_peer_egress returned NULL consistently. interestingly only TCP
+     * was affected. UDP worked as normal. another thing that was very
+     * interesting to observe is that when running
+     *
+     *      ./pwru --filter-ifname vetht0a --output-tuple
+     *
+     * the first connection attempt failed, due to bpf_map_lookup_elem
+     * in host_peer_egress returning NULL, but subsequent connections
+     * succeeded. stopping pwru caused all connections to fail again
+     * with the same error as previously.
+     * pwru version used was v1.0.8.
+     */
+    __u64 key = (0 /*TODO: veth pair id*/ << 24) | (sport << 8) | proto;
     struct original_dst_entry val = {
         .port = dport,
         .ip_addr = daddr,
     };
-
-    bpf_printk("port: %d", bpf_ntohs(dport));
 
     bpf_map_update_elem(&original_dst_map, &key, &val, BPF_ANY);
 
@@ -121,12 +126,11 @@ int ingress(struct __sk_buff *ctx)
     }
 
     rewrite_port(&ctx, bpf_htons(TPROXY_TCP_PORT), TCP_DPORT_OFF, IPPROTO_TCP);
-
     return TC_ACT_OK;
 }
 
 SEC("tc")
-int egress(struct __sk_buff *ctx)
+int host_peer_egress(struct __sk_buff *ctx)
 {
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
@@ -141,17 +145,10 @@ int egress(struct __sk_buff *ctx)
     __u8 proto = iph->protocol;
     __be16 dport = get_port(&ctx, TCP_DPORT_OFF, UDP_DPORT_OFF, proto);
 
-/*
-    struct original_dst_key key = {
-        .proto = proto,
-        .port = dport,
-    };
-*/
-    __be16 key = dport;
-
+    __u64 key = (0 << 24) | (dport << 8) | proto;
     struct original_dst_entry *e = bpf_map_lookup_elem(&original_dst_map, &key);
     if (e == NULL) {
-        bpf_printk("tproxy: egress: no entry for port %d/%d", proto, dport);
+        bpf_printk("tproxy: egress: no entry for port %d/%d", proto, bpf_ntohs(dport));
         return TC_ACT_OK;
     }
 
@@ -171,17 +168,10 @@ int getsockopt(struct bpf_sockopt *ctx)
     __be16 client_port = ctx->sk->dst_port;
     __u8 proto = ctx->sk->protocol;
 
-/*
-    struct original_dst_key key = {
-        .proto = proto,
-        .port = client_port,
-    };
-*/
-    __be16 key = client_port;
-
+     __u64 key = (0 << 24) | (client_port << 8) | proto;
     struct original_dst_entry *e = bpf_map_lookup_elem(&original_dst_map, &key);
     if (e == NULL) {
-        bpf_printk("tproxy: getsockopt: no entry for port %d/%d", proto, client_port);
+        bpf_printk("tproxy: getsockopt: no entry for port %d/%d", proto, bpf_ntohs(client_port));
         return 0;
     }
 
