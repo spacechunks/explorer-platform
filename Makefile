@@ -17,6 +17,10 @@ vmlinux:
 gogen_all:
 	go generate ./...
 
+.PHONY: genproto
+genproto:
+	buf generate --template ./api/buf.gen.yaml --output ./api ./api
+
 .PHONY: nodedev
 nodedev:
 	./nodedev/up.sh
