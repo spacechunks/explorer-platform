@@ -1,11 +1,17 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
+	"github.com/hashicorp/go-multierror"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/spacechunks/platform/internal/platformd"
 	"log/slog"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 )
 
 func main() {
@@ -14,6 +20,7 @@ func main() {
 		fs     = flag.NewFlagSet("platformd", flag.ContinueOnError)
 
 		proxyServiceListenSock = fs.String("proxy-service-listen-sock", "/var/run/platformd/platformd.sock", "path to the unix domain socket to listen on")
+		criListenSock          = fs.String("cri-listen-sock", "/var/run/crio/crio.sock", "path to the unix domain socket the CRI is listening on")
 		_                      = fs.String("config", "/etc/platformd/config.json", "path to the config file")
 	)
 	if err := ff.Parse(fs, os.Args[1:],
@@ -21,22 +28,43 @@ func main() {
 		ff.WithConfigFileFlag("config"),
 		ff.WithConfigFileParser(ff.JSONParser),
 	); err != nil {
-		die("failed to parse config", err, logger)
+		die(logger, "failed to parse config", err)
 	}
 
 	var (
 		cfg = platformd.Config{
 			ProxyServiceListenSock: *proxyServiceListenSock,
+			CRIListenSock:          *criListenSock,
 		}
+		ctx    = context.Background()
 		server = platformd.NewServer(logger)
 	)
 
-	if err := server.Run(cfg); err != nil {
-		die("failed to start server", err, logger)
+	ctx, cancel := context.WithCancel(ctx)
+
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		s := <-c
+		logger.Info("received shutdown signal", "signal", s)
+		cancel()
+	}()
+
+	if err := server.Run(ctx, cfg); err != nil {
+		var multi *multierror.Error
+		if errors.As(err, &multi) {
+			errs := make([]string, 0, len(multi.WrappedErrors()))
+			for _, err := range multi.WrappedErrors() {
+				errs = append(errs, err.Error())
+			}
+			die(logger, "failed to run server", errors.New(strings.Join(errs, ",")))
+			return
+		}
+		die(logger, "failed to run server", err)
 	}
 }
 
-func die(msg string, err error, logger *slog.Logger) {
+func die(logger *slog.Logger, msg string, err error) {
 	logger.Error(msg, "err", err)
 	os.Exit(1)
 }
