@@ -3,15 +3,19 @@ package platformd
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"path"
+
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/hashicorp/go-multierror"
 	proxyv1alpha1 "github.com/spacechunks/platform/api/platformd/proxy/v1alpha1"
 	"github.com/spacechunks/platform/internal/platformd/proxy"
+	"github.com/spacechunks/platform/internal/platformd/workload"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	runtimev1 "k8s.io/cri-api/pkg/apis/runtime/v1"
-	"log/slog"
-	"net"
 )
 
 type Server struct {
@@ -25,11 +29,6 @@ func NewServer(logger *slog.Logger) *Server {
 }
 
 func (s *Server) Run(ctx context.Context, cfg Config) error {
-	unixSock, err := net.Listen("unix", cfg.ProxyServiceListenSock)
-	if err != nil {
-		return fmt.Errorf("failed to listen on unix socket: %v", err)
-	}
-
 	criConn, err := grpc.NewClient("unix://"+cfg.CRIListenSock, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to create cri grpc client: %w", err)
@@ -39,11 +38,34 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 		mgmtServer  = grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 		proxyServer = proxy.NewServer()
 		xdsCfg      = cache.NewSnapshotCache(true, cache.IDHash{}, nil)
-		criClient   = runtimev1.NewRuntimeServiceClient(criConn)
+		wlSvc       = workload.NewService(
+			s.logger,
+			runtimev1.NewRuntimeServiceClient(criConn),
+			runtimev1.NewImageServiceClient(criConn),
+		)
 	)
 
 	proxyv1alpha1.RegisterProxyServiceServer(mgmtServer, proxyServer)
 	proxy.CreateAndRegisterXDSServer(ctx, mgmtServer, xdsCfg)
+
+	// before we start our grpc services make sure our system workloads are running
+	if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
+		Name:      "envoy",
+		Image:     cfg.EnvoyImage,
+		Namespace: "platformd-system",
+		Labels:    workload.SystemWorkloadLabels("envoy"),
+	}, workload.SystemWorkloadLabels("envoy")); err != nil {
+		return fmt.Errorf("ensure envoy: %w", err)
+	}
+
+	if err := os.MkdirAll(path.Dir(cfg.ProxyServiceListenSock), os.ModePerm); err != nil {
+		return fmt.Errorf("create mgmt listen sock dir: %w", err)
+	}
+
+	unixSock, err := net.Listen("unix", cfg.ProxyServiceListenSock)
+	if err != nil {
+		return fmt.Errorf("failed to listen on unix socket: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
