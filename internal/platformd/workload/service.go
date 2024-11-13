@@ -10,12 +10,16 @@ import (
 	runtimev1 "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
+const NetworkNamespaceHost = 2
+
 type CreateOptions struct {
-	Name      string
-	Image     string
-	Namespace string
-	Hostname  string
-	Labels    map[string]string
+	Name             string
+	Image            string
+	Namespace        string
+	Hostname         string
+	Labels           map[string]string
+	NetworkNamespace int
+	Args             []string
 }
 
 const podLogDir = "/var/log/platformd/pods"
@@ -39,11 +43,10 @@ func NewService(logger *slog.Logger, rtClient runtimev1.RuntimeServiceClient, im
 	}
 }
 
-// EnsurePod ensures that a pod is created if not present.
+// EnsureWorkload ensures that a pod is created if not present.
 // if ListPodSandbox returns 0 items, a pod with the passed configuration is created.
-// Currently this function is designed for a single item returned by the label selector.
+// Currently, this function is designed for a single item returned by the label selector.
 // If multiple items are returned the first one will be picked.
-// TODO: what do we do if the pod found is in NOT_READY state
 func (s *criService) EnsureWorkload(ctx context.Context, opts CreateOptions, labelSelector map[string]string) error {
 	resp, err := s.rtClient.ListPodSandbox(ctx, &runtimev1.ListPodSandboxRequest{
 		Filter: &runtimev1.PodSandboxFilter{
@@ -53,6 +56,8 @@ func (s *criService) EnsureWorkload(ctx context.Context, opts CreateOptions, lab
 	if err != nil {
 		return fmt.Errorf("list pod sandbox: %w", err)
 	}
+
+	// TODO: what do we do if the pod found is in NOT_READY state
 
 	if len(resp.Items) > 0 {
 		return nil
@@ -87,6 +92,13 @@ func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) err
 		Hostname:     opts.Hostname,
 		LogDirectory: podLogDir,
 		Labels:       opts.Labels,
+		Linux: &runtimev1.LinuxPodSandboxConfig{
+			SecurityContext: &runtimev1.LinuxSandboxSecurityContext{
+				NamespaceOptions: &runtimev1.NamespaceOption{
+					Network: runtimev1.NamespaceMode(opts.NetworkNamespace),
+				},
+			},
+		},
 	}
 
 	sboxResp, err := s.rtClient.RunPodSandbox(ctx, &runtimev1.RunPodSandboxRequest{
@@ -109,6 +121,7 @@ func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) err
 			Image: &runtimev1.ImageSpec{
 				Image: opts.Image,
 			},
+			Args:    opts.Args,
 			Labels:  opts.Labels,
 			LogPath: fmt.Sprintf("%s_%s", opts.Namespace, opts.Name),
 		},

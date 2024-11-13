@@ -48,14 +48,38 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 	proxyv1alpha1.RegisterProxyServiceServer(mgmtServer, proxyServer)
 	proxy.CreateAndRegisterXDSServer(ctx, mgmtServer, xdsCfg)
 
+	systemPodCfg := []struct {
+		name      string
+		namespace string
+		image     string
+		args      []string
+	}{
+		{
+			name:      "envoy",
+			image:     cfg.EnvoyImage,
+			namespace: "system",
+		},
+		{
+			name:      "coredns",
+			image:     cfg.CoreDNSImage,
+			namespace: "system",
+			args:      []string{"-conf", "/etc/coredns/Corefile"},
+		},
+	}
+
 	// before we start our grpc services make sure our system workloads are running
-	if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
-		Name:      "envoy",
-		Image:     cfg.EnvoyImage,
-		Namespace: "platformd-system",
-		Labels:    workload.SystemWorkloadLabels("envoy"),
-	}, workload.SystemWorkloadLabels("envoy")); err != nil {
-		return fmt.Errorf("ensure envoy: %w", err)
+	for _, p := range systemPodCfg {
+		labels := workload.SystemWorkloadLabels(p.name)
+		if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
+			Name:             p.name,
+			Image:            p.image,
+			Namespace:        p.namespace,
+			Labels:           labels,
+			NetworkNamespace: workload.NetworkNamespaceHost,
+			Args:             p.args,
+		}, labels); err != nil {
+			return fmt.Errorf("ensure envoy: %w", err)
+		}
 	}
 
 	if err := os.MkdirAll(path.Dir(cfg.ProxyServiceListenSock), os.ModePerm); err != nil {

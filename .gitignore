@@ -4,3 +4,4 @@ conf
 .envrc
 work/
 nodedev/ptpnat
+/platformd
