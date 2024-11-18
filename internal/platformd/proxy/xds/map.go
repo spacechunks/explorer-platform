@@ -33,7 +33,7 @@ func (rg *ResourceGroup) ResourcesByType() map[resource.Type][]types.Resource {
 		m[resource.ListenerType] = append(m[resource.ListenerType], l)
 	}
 	for _, cla := range rg.CLAS {
-		m[resource.ClusterType] = append(m[resource.ClusterType], cla)
+		m[resource.EndpointType] = append(m[resource.EndpointType], cla)
 	}
 	return m
 }
@@ -65,7 +65,8 @@ func (m *Map) Get(key string) ResourceGroup {
 
 // Apply saves the passed resource group in the map under the provided
 // key, creates a new snapshot and applies it to all known envoy nodes at the time.
-func (m *Map) Apply(ctx context.Context, key string, rg ResourceGroup) error {
+// Returns the applied snapshot.
+func (m *Map) Apply(ctx context.Context, key string, rg ResourceGroup) (*cache.Snapshot, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -84,14 +85,14 @@ func (m *Map) Apply(ctx context.Context, key string, rg ResourceGroup) error {
 	m.version++
 	snap, err := cache.NewSnapshot(fmt.Sprintf("%d", m.version), typeToRes)
 	if err != nil {
-		return fmt.Errorf("create snapshot: %w", err)
+		return nil, fmt.Errorf("create snapshot: %w", err)
 	}
 
 	for _, nodeID := range m.cache.GetStatusKeys() {
 		if err := m.cache.SetSnapshot(ctx, nodeID, snap); err != nil {
-			return fmt.Errorf("set snapshot: %w", err)
+			return nil, fmt.Errorf("set snapshot: %w", err)
 		}
 	}
 
-	return nil
+	return snap, nil
 }
