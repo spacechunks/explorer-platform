@@ -1,14 +1,11 @@
 package xds
 
 import (
-	"fmt"
 	"net/netip"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type ListenerConfig struct {
@@ -16,16 +13,10 @@ type ListenerConfig struct {
 	StatPrefix   string
 	Addr         netip.AddrPort
 	Proto        corev3.SocketAddress_Protocol
-	FilterName   string
-	FilterCfg    proto.Message
 }
 
 // CreateListener creates a listener with a single listener filter config
-func CreateListener(cfg ListenerConfig) (*listenerv3.Listener, error) {
-	var filterCfgAny anypb.Any
-	if err := anypb.MarshalFrom(&filterCfgAny, cfg.FilterCfg, proto.MarshalOptions{}); err != nil {
-		return nil, fmt.Errorf("marshal to any: %w", err)
-	}
+func CreateListener(cfg ListenerConfig) *listenerv3.Listener {
 	return &listenerv3.Listener{
 		Name: cfg.ListenerName,
 		Address: &corev3.Address{
@@ -40,15 +31,7 @@ func CreateListener(cfg ListenerConfig) (*listenerv3.Listener, error) {
 			},
 		},
 		StatPrefix: cfg.StatPrefix,
-		ListenerFilters: []*listenerv3.ListenerFilter{
-			{
-				Name: cfg.StatPrefix,
-				ConfigType: &listenerv3.ListenerFilter_TypedConfig{
-					TypedConfig: &filterCfgAny,
-				},
-			},
-		},
-	}, nil
+	}
 }
 
 // CreateCLA creates a cluster load assignment with a single upstream endpoint

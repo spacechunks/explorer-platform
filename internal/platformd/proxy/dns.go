@@ -21,12 +21,12 @@ import (
 
 const dnsGroupKey = "dns"
 
-func dnsResourceGroup(clusterName string, upstreamAddr netip.AddrPort, listenerAddr netip.AddrPort) (xds.ResourceGroup, error) {
-	udpCLA, udpListener, err := dnsUDPResources(clusterName, upstreamAddr, listenerAddr)
+func dnsResourceGroup(clusterName string, listenerAddr, upstreamAddr netip.AddrPort) (xds.ResourceGroup, error) {
+	udpCLA, udpListener, err := dnsUDPResources(clusterName, listenerAddr, upstreamAddr)
 	if err != nil {
 		return xds.ResourceGroup{}, fmt.Errorf("udp resources: %w", err)
 	}
-	tcpCLA, tcpListener, err := dnsTCPResources(clusterName, upstreamAddr, listenerAddr)
+	tcpCLA, tcpListener, err := dnsTCPResources(clusterName, listenerAddr, upstreamAddr)
 	if err != nil {
 		return xds.ResourceGroup{}, fmt.Errorf("tcp resources: %w", err)
 	}
@@ -51,31 +51,46 @@ func dnsResourceGroup(clusterName string, upstreamAddr netip.AddrPort, listenerA
 	}, nil
 }
 
-func dnsTCPResources(clusterName string, upstreamAddr netip.AddrPort, listenerAddr netip.AddrPort) (
+func dnsTCPResources(clusterName string, listenerAddr, upstreamAddr netip.AddrPort) (
 	*endpointv3.ClusterLoadAssignment,
 	*listenerv3.Listener,
 	error,
 ) {
-	l, err := xds.CreateListener(xds.ListenerConfig{
+	filterCfg := &tcpproxyv3.TcpProxy{
+		StatPrefix: "dns_tcp_proxy",
+		ClusterSpecifier: &tcpproxyv3.TcpProxy_Cluster{
+			Cluster: clusterName,
+		},
+	}
+
+	var filterCfgAny anypb.Any
+	if err := anypb.MarshalFrom(&filterCfgAny, filterCfg, proto.MarshalOptions{}); err != nil {
+		return nil, nil, fmt.Errorf("marshal to any: %w", err)
+	}
+
+	l := xds.CreateListener(xds.ListenerConfig{
 		ListenerName: "dns_tcp",
-		StatPrefix:   "dns_tcp",
 		Addr:         listenerAddr,
 		Proto:        corev3.SocketAddress_TCP,
-		FilterName:   "dns_tcp_proxy",
-		FilterCfg: &tcpproxyv3.TcpProxy{
-			StatPrefix: "dns_tcp",
-			ClusterSpecifier: &tcpproxyv3.TcpProxy_Cluster{
-				Cluster: clusterName,
+	})
+
+	l.FilterChains = []*listenerv3.FilterChain{
+		{
+			Filters: []*listenerv3.Filter{
+				{
+					Name: "envoy.filters.network.tcp_proxy",
+					ConfigType: &listenerv3.Filter_TypedConfig{
+						TypedConfig: &filterCfgAny,
+					},
+				},
 			},
 		},
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("create listener: %w", err)
 	}
+
 	return xds.CreateCLA(clusterName, upstreamAddr, corev3.SocketAddress_UDP), l, nil
 }
 
-func dnsUDPResources(clusterName string, upstreamAddr netip.AddrPort, listenerAddr netip.AddrPort) (
+func dnsUDPResources(clusterName string, listenerAddr, upstreamAddr netip.AddrPort) (
 	*endpointv3.ClusterLoadAssignment,
 	*listenerv3.Listener,
 	error,
@@ -86,36 +101,46 @@ func dnsUDPResources(clusterName string, upstreamAddr netip.AddrPort, listenerAd
 
 	var dnsRouteAny anypb.Any
 	if err := anypb.MarshalFrom(&dnsRouteAny, dnsRoute, proto.MarshalOptions{}); err != nil {
-		return nil, nil, fmt.Errorf("dns route to any: %w", err)
+		return nil, nil, fmt.Errorf("route to any: %w", err)
 	}
 
-	l, err := xds.CreateListener(xds.ListenerConfig{
-		ListenerName: "dns_udp",
-		StatPrefix:   "dns_udp",
-		Addr:         listenerAddr,
-		Proto:        corev3.SocketAddress_UDP,
-		FilterName:   "dns_udp_proxy",
-		FilterCfg: &udpproxyv3.UdpProxyConfig{
-			StatPrefix: "dns_udp",
-			RouteSpecifier: &udpproxyv3.UdpProxyConfig_Matcher{
-				Matcher: &xsdmatcherv3.Matcher{
-					OnNoMatch: &xsdmatcherv3.Matcher_OnMatch{
-						OnMatch: &xsdmatcherv3.Matcher_OnMatch_Action{
-							Action: &xdscorev3.TypedExtensionConfig{
-								Name:        "route",
-								TypedConfig: &dnsRouteAny,
-							},
+	filterCfg := &udpproxyv3.UdpProxyConfig{
+		StatPrefix: "dns_udp_proxy",
+		RouteSpecifier: &udpproxyv3.UdpProxyConfig_Matcher{
+			Matcher: &xsdmatcherv3.Matcher{
+				OnNoMatch: &xsdmatcherv3.Matcher_OnMatch{
+					OnMatch: &xsdmatcherv3.Matcher_OnMatch_Action{
+						Action: &xdscorev3.TypedExtensionConfig{
+							Name:        "route",
+							TypedConfig: &dnsRouteAny,
 						},
 					},
 				},
 			},
-			UpstreamSocketConfig: &corev3.UdpSocketConfig{
-				MaxRxDatagramSize: wrapperspb.UInt64(9000),
+		},
+		UpstreamSocketConfig: &corev3.UdpSocketConfig{
+			MaxRxDatagramSize: wrapperspb.UInt64(9000),
+		},
+	}
+
+	var filterCfgAny anypb.Any
+	if err := anypb.MarshalFrom(&filterCfgAny, filterCfg, proto.MarshalOptions{}); err != nil {
+		return nil, nil, fmt.Errorf("filter to any: %w", err)
+	}
+
+	l := xds.CreateListener(xds.ListenerConfig{
+		ListenerName: "dns_udp",
+		Addr:         listenerAddr,
+		Proto:        corev3.SocketAddress_UDP,
+	})
+
+	l.ListenerFilters = []*listenerv3.ListenerFilter{
+		{
+			Name: "envoy.filters.udp_listener.udp_proxy",
+			ConfigType: &listenerv3.ListenerFilter_TypedConfig{
+				TypedConfig: &filterCfgAny,
 			},
 		},
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("create listener: %w", err)
 	}
 
 	l.UdpListenerConfig = &listenerv3.UdpListenerConfig{
