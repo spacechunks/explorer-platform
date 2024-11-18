@@ -19,10 +19,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"log"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
 	"github.com/spacechunks/platform/internal/ptpnat"
-	"log"
 )
 
 func main() {

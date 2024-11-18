@@ -8,6 +8,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/spacechunks/platform/internal/platformd/proxy/xds"
+
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/hashicorp/go-multierror"
 	proxyv1alpha1 "github.com/spacechunks/platform/api/platformd/proxy/v1alpha1"
@@ -43,10 +45,11 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 			runtimev1.NewRuntimeServiceClient(criConn),
 			runtimev1.NewImageServiceClient(criConn),
 		)
+		proxySvc = proxy.NewService(xds.NewMap(xdsCfg))
 	)
 
 	proxyv1alpha1.RegisterProxyServiceServer(mgmtServer, proxyServer)
-	proxy.CreateAndRegisterXDSServer(ctx, mgmtServer, xdsCfg)
+	xds.CreateAndRegisterServer(ctx, mgmtServer, xdsCfg)
 
 	systemPodCfg := []struct {
 		name      string

@@ -22,14 +22,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/bramvdbogaerde/go-scp"
-	"github.com/bramvdbogaerde/go-scp/auth"
-	"golang.org/x/crypto/ssh"
 	"io/fs"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/bramvdbogaerde/go-scp"
+	"github.com/bramvdbogaerde/go-scp/auth"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/spacechunks/platform/nodedev"
 	"github.com/spacechunks/platform/test"
