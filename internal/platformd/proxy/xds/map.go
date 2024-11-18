@@ -22,6 +22,22 @@ type ResourceGroup struct {
 	CLAS      []*endpointv3.ClusterLoadAssignment
 }
 
+// ResourcesByType returns a map that can be used directly when applying
+// a new snapshot.
+func (rg *ResourceGroup) ResourcesByType() map[resource.Type][]types.Resource {
+	m := make(map[resource.Type][]types.Resource)
+	for _, c := range rg.Clusters {
+		m[resource.ClusterType] = append(m[resource.ClusterType], c)
+	}
+	for _, l := range rg.Listeners {
+		m[resource.ListenerType] = append(m[resource.ListenerType], l)
+	}
+	for _, cla := range rg.CLAS {
+		m[resource.ClusterType] = append(m[resource.ClusterType], cla)
+	}
+	return m
+}
+
 // Map is responsible for holding and applying envoy configuration resources.
 // This is necessary, because when applying new resources all previous ones that
 // are not contained in the snapshot will be removed by envoy. This map is safe
@@ -30,6 +46,15 @@ type Map struct {
 	cache     cache.SnapshotCache
 	mu        sync.Mutex
 	resources map[string]ResourceGroup
+	version   uint64
+}
+
+func NewMap(cache cache.SnapshotCache) *Map {
+	return &Map{
+		cache:     cache,
+		resources: make(map[string]ResourceGroup),
+		version:   0,
+	}
 }
 
 func (m *Map) Get(key string) ResourceGroup {
@@ -45,24 +70,19 @@ func (m *Map) Apply(ctx context.Context, key string, rg ResourceGroup) error {
 	defer m.mu.Unlock()
 
 	m.resources[key] = rg
-
 	typeToRes := make(map[resource.Type][]types.Resource)
 
-	// update snapshot
+	// merge all resources from all resource groups to
+	// get a complete view of the envoy configuration
+	// to apply.
 	for _, v := range m.resources {
-		for _, c := range v.Clusters {
-			typeToRes[resource.ListenerType] = append(typeToRes[resource.ClusterType], c)
-		}
-		for _, l := range v.Listeners {
-			typeToRes[resource.ListenerType] = append(typeToRes[resource.ListenerType], l)
-		}
-		for _, cla := range v.CLAS {
-			typeToRes[resource.ListenerType] = append(typeToRes[resource.EndpointType], cla)
+		for typ, res := range v.ResourcesByType() {
+			typeToRes[typ] = append(typeToRes[typ], res...)
 		}
 	}
 
-	// TODO: somehow determine version
-	snap, err := cache.NewSnapshot("", typeToRes)
+	m.version++
+	snap, err := cache.NewSnapshot(fmt.Sprintf("%d", m.version), typeToRes)
 	if err != nil {
 		return fmt.Errorf("create snapshot: %w", err)
 	}
