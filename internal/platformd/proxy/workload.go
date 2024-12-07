@@ -2,7 +2,9 @@ package proxy
 
 import (
 	"fmt"
-	"github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	"net/netip"
+
+	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -12,7 +14,6 @@ import (
 	"github.com/spacechunks/platform/internal/platformd/proxy/xds"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"net/netip"
 )
 
 func workloadResources(

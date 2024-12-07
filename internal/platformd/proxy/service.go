@@ -3,12 +3,11 @@ package proxy
 import (
 	"context"
 	"fmt"
-	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"log"
 	"net/netip"
 	"time"
+
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/spacechunks/platform/internal/platformd/proxy/xds"
 )
