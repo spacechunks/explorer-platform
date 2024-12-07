@@ -1,6 +1,13 @@
 package xds
 
 import (
+	"fmt"
+	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	streamv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/stream/v3"
+	tcpproxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"net/netip"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -61,6 +68,70 @@ func CreateCLA(
 								},
 							},
 						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func JSONStdoutAccessLog(format map[string]any) (*accesslogv3.AccessLog, error) {
+	jsonFormat, err := structpb.NewStruct(format)
+	if err != nil {
+		return nil, fmt.Errorf("new json format struct: %w", err)
+	}
+
+	stdout := &streamv3.StdoutAccessLog{
+		AccessLogFormat: &streamv3.StdoutAccessLog_LogFormat{
+			LogFormat: &corev3.SubstitutionFormatString{
+				Format: &corev3.SubstitutionFormatString_JsonFormat{
+					JsonFormat: jsonFormat,
+				},
+				OmitEmptyValues: true,
+				JsonFormatOptions: &corev3.JsonFormatOptions{
+					SortProperties: true,
+				},
+			},
+		},
+	}
+
+	var stdoutAny anypb.Any
+	if err := anypb.MarshalFrom(&stdoutAny, stdout, proto.MarshalOptions{}); err != nil {
+		return nil, fmt.Errorf("marshal to any: %w", err)
+	}
+
+	return &accesslogv3.AccessLog{
+		Name: "json_stdout_access_log",
+		ConfigType: &accesslogv3.AccessLog_TypedConfig{
+			TypedConfig: &stdoutAny,
+		},
+	}, nil
+}
+
+type TCPProxyConfig struct {
+	StatPrefix  string
+	ClusterName string
+}
+
+func TCPProxyListener(listenerCfg ListenerConfig, proxyCfg TCPProxyConfig) (*listenerv3.Listener, error) {
+	filterCfg := &tcpproxyv3.TcpProxy{
+		StatPrefix: proxyCfg.StatPrefix,
+		ClusterSpecifier: &tcpproxyv3.TcpProxy_Cluster{
+			Cluster: proxyCfg.ClusterName,
+		},
+	}
+	var filterCfgAny anypb.Any
+	if err := anypb.MarshalFrom(&filterCfgAny, filterCfg, proto.MarshalOptions{}); err != nil {
+		return nil, fmt.Errorf("marshal to any: %w", err)
+	}
+	l := CreateListener(listenerCfg)
+	l.FilterChains = []*listenerv3.FilterChain{
+		{
+			Filters: []*listenerv3.Filter{
+				{
+					Name: "envoy.filters.network.tcp_proxy",
+					ConfigType: &listenerv3.Filter_TypedConfig{
+						TypedConfig: &filterCfgAny,
 					},
 				},
 			},
