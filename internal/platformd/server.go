@@ -37,52 +37,35 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 	}
 
 	var (
-		mgmtServer  = grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
-		proxyServer = proxy.NewServer()
-		xdsCfg      = cache.NewSnapshotCache(true, cache.IDHash{}, nil)
-		wlSvc       = workload.NewService(
+		xdsCfg = cache.NewSnapshotCache(true, cache.IDHash{}, nil)
+		wlSvc  = workload.NewService(
 			s.logger,
 			runtimev1.NewRuntimeServiceClient(criConn),
 			runtimev1.NewImageServiceClient(criConn),
 		)
 		proxySvc = proxy.NewService(xds.NewMap(xdsCfg))
+
+		mgmtServer  = grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
+		proxyServer = proxy.NewServer(proxySvc)
 	)
 
 	proxyv1alpha1.RegisterProxyServiceServer(mgmtServer, proxyServer)
 	xds.CreateAndRegisterServer(ctx, mgmtServer, xdsCfg)
 
-	systemPodCfg := []struct {
-		name      string
-		namespace string
-		image     string
-		args      []string
-	}{
-		{
-			name:      "envoy",
-			image:     cfg.EnvoyImage,
-			namespace: "system",
-		},
-		{
-			name:      "coredns",
-			image:     cfg.CoreDNSImage,
-			namespace: "system",
-			args:      []string{"-conf", "/etc/coredns/Corefile"},
-		},
+	if err := proxySvc.ApplyOriginalDstCluster(ctx); err != nil {
+		return fmt.Errorf("apply original dst cluster: %w", err)
 	}
 
 	// before we start our grpc services make sure our system workloads are running
-	for _, p := range systemPodCfg {
-		labels := workload.SystemWorkloadLabels(p.name)
-		if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
-			Name:             p.name,
-			Image:            p.image,
-			Namespace:        p.namespace,
-			Labels:           labels,
-			NetworkNamespace: workload.NetworkNamespaceHost,
-			Args:             p.args,
-		}, labels); err != nil {
-			return fmt.Errorf("ensure envoy: %w", err)
-		}
+	labels := workload.SystemWorkloadLabels("envoy")
+	if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
+		Name:             "envoy",
+		Image:            cfg.EnvoyImage,
+		Namespace:        "system",
+		Labels:           labels,
+		NetworkNamespace: workload.NetworkNamespaceHost,
+	}, labels); err != nil {
+		return fmt.Errorf("ensure envoy: %w", err)
 	}
 
 	if err := os.MkdirAll(path.Dir(cfg.ProxyServiceListenSock), os.ModePerm); err != nil {
@@ -106,6 +89,8 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 	})
 
 	<-ctx.Done()
+
+	// add stop related code below
 
 	mgmtServer.GracefulStop()
 	g.Go(func() error {
