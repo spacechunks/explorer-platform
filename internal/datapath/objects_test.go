@@ -18,22 +18,22 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package gobpf_test
+package datapath_test
 
 import (
 	"fmt"
+	"github.com/spacechunks/platform/internal/datapath"
 	"testing"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
 	"github.com/spacechunks/platform/test"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 )
 
 func TestAttachBPFProgs(t *testing.T) {
-	objects, err := gobpf.LoadObjects()
+	objects, err := datapath.LoadObjects()
 	require.NoError(t, err)
 
 	tests := []struct {
