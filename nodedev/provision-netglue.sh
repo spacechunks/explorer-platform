@@ -39,10 +39,10 @@ cd -
 mkdir -p /opt/cni
 cp -r plugins/bin /opt/cni
 
-# install ptpnat
-cp ptpnat /opt/cni/bin/ptpnat
+# install cni
+cp netglue /opt/cni/bin/netglue
 mkdir -p /etc/cni/net.d/
-cp /root/10-ptpnat.conflist /etc/cni/net.d/10-ptpnat.conflist
+cp /root/10-netglue.conflist /etc/cni/net.d/10-netglue.conflist
 
 # crio
 MAJOR_VERSION=1.30

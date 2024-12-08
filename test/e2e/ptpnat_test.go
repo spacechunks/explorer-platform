@@ -99,7 +99,7 @@ func setup(t *testing.T, ctx context.Context, env *test.Env, addr string) {
 
 	defer sess.Close()
 
-	out, err := sess.CombinedOutput("./provision-ptpnat.sh")
+	out, err := sess.CombinedOutput("./provision-cni.sh")
 	if err != nil {
 		fmt.Println(string(out))
 		fmt.Println("===")

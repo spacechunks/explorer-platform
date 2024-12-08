@@ -1,9 +1,9 @@
 {
   "cniVersion": "1.0.0",
-  "name": "ptpnat",
+  "name": "netglue",
   "plugins": [
     {
-      "type": "ptpnat",
+      "type": "netglue",
       "hostIface": "eth0",
       "ipam": {
         "type": "host-local",

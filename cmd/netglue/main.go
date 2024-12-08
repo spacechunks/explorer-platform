@@ -23,15 +23,15 @@ import (
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
-	"github.com/spacechunks/platform/internal/ptpnat"
+	"github.com/spacechunks/platform/internal/cni"
 )
 
 func main() {
-	handler, err := ptpnat.NewHandler()
+	handler, err := cni.NewHandler()
 	if err != nil {
 		log.Fatalf("failed to create handler: %v", err)
 	}
-	cni := ptpnat.NewCNI(handler)
+	cni := cni.NewCNI(handler)
 	skel.PluginMainFuncs(skel.CNIFuncs{
 		Add:    cni.ExecAdd,
 		Del:    cni.ExecDel,

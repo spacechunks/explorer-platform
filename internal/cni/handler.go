@@ -16,19 +16,19 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package ptpnat
+package cni
 
 import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/spacechunks/platform/internal/datapath"
 	"net"
 	"net/netip"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/spacechunks/platform/internal/ptpnat/gobpf"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -52,11 +52,11 @@ type Handler interface {
 }
 
 type cniHandler struct {
-	bpf *gobpf.Objects
+	bpf *datapath.Objects
 }
 
 func NewHandler() (Handler, error) {
-	objs, err := gobpf.LoadObjects()
+	objs, err := datapath.LoadObjects()
 	if err != nil {
 		return nil, err
 	}

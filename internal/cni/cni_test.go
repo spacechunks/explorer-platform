@@ -16,7 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package ptpnat_test
+package cni_test
 
 import (
 	"errors"
@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	"github.com/containernetworking/cni/pkg/skel"
+	"github.com/spacechunks/platform/internal/cni"
 	"github.com/spacechunks/platform/internal/mock"
-	"github.com/spacechunks/platform/internal/ptpnat"
 	"github.com/stretchr/testify/assert"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
@@ -96,7 +96,7 @@ func TestExecAdd(t *testing.T) {
 			args: &skel.CmdArgs{
 				StdinData: []byte(`{"ipam":{"type":"host-local"}}`),
 			},
-			err: ptpnat.ErrHostIfaceNotFound.Error(),
+			err: cni.ErrHostIfaceNotFound.Error(),
 			prep: func(h *mock.MockPtpnatHandler, args *skel.CmdArgs) {
 			},
 		},
@@ -105,7 +105,7 @@ func TestExecAdd(t *testing.T) {
 			args: &skel.CmdArgs{
 				StdinData: []byte(`{}`),
 			},
-			err: ptpnat.ErrIPAMConfigNotFound.Error(),
+			err: cni.ErrIPAMConfigNotFound.Error(),
 			prep: func(h *mock.MockPtpnatHandler, args *skel.CmdArgs) {
 			},
 		},
@@ -114,7 +114,7 @@ func TestExecAdd(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var (
 				h = mock.NewMockPtpnatHandler(t)
-				c = ptpnat.NewCNI(h)
+				c = cni.NewCNI(h)
 			)
 			tt.prep(h, tt.args)
 			err := c.ExecAdd(tt.args)
