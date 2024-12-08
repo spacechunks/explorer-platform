@@ -9,9 +9,8 @@ service ProxyService {
 }
 
 message CreateListenerRequest {
-  string ip = 1;
+  string workloadID = 1;
+  string ip = 2;
 }
 
-message CreateListenerResponse {
-
-}
+message CreateListenerResponse {}

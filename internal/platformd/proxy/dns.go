@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/netip"
 
-	tcpproxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/spacechunks/platform/internal/platformd/proxy/xds"
 
 	xdscorev3 "github.com/cncf/xds/go/xds/core/v3"
@@ -19,7 +18,10 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-const dnsGroupKey = "dns"
+const (
+	dnsGroupKey            = "dns"
+	originalDstClusterName = "public"
+)
 
 func dnsResourceGroup(clusterName string, listenerAddr, upstreamAddr netip.AddrPort) (xds.ResourceGroup, error) {
 	udpCLA, udpListener, err := dnsUDPResources(clusterName, listenerAddr, upstreamAddr)
@@ -56,35 +58,16 @@ func dnsTCPResources(clusterName string, listenerAddr, upstreamAddr netip.AddrPo
 	*listenerv3.Listener,
 	error,
 ) {
-	filterCfg := &tcpproxyv3.TcpProxy{
-		StatPrefix: "dns_tcp_proxy",
-		ClusterSpecifier: &tcpproxyv3.TcpProxy_Cluster{
-			Cluster: clusterName,
-		},
-	}
-
-	var filterCfgAny anypb.Any
-	if err := anypb.MarshalFrom(&filterCfgAny, filterCfg, proto.MarshalOptions{}); err != nil {
-		return nil, nil, fmt.Errorf("marshal to any: %w", err)
-	}
-
-	l := xds.CreateListener(xds.ListenerConfig{
+	l, err := xds.TCPProxyListener(xds.ListenerConfig{
 		ListenerName: "dns_tcp",
 		Addr:         listenerAddr,
 		Proto:        corev3.SocketAddress_TCP,
+	}, xds.TCPProxyConfig{
+		StatPrefix:  "dns_tcp_proxy",
+		ClusterName: clusterName,
 	})
-
-	l.FilterChains = []*listenerv3.FilterChain{
-		{
-			Filters: []*listenerv3.Filter{
-				{
-					Name: "envoy.filters.network.tcp_proxy",
-					ConfigType: &listenerv3.Filter_TypedConfig{
-						TypedConfig: &filterCfgAny,
-					},
-				},
-			},
-		},
+	if err != nil {
+		return nil, nil, fmt.Errorf("create tcp proxy listener: %w", err)
 	}
 
 	return xds.CreateCLA(clusterName, upstreamAddr, corev3.SocketAddress_UDP), l, nil
