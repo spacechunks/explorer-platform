@@ -3,7 +3,7 @@
 This is the implementation of the datapath of the platform stack. For each Minecraft server container a unique port on the host 
 system will be allocated. 
 
-**Basic overview of functionality by interface**
+### Basic overview of functionality by interface
 
 * internet-facing interface
   * Packets arriving with a matching destination port will be redirected
@@ -20,7 +20,7 @@ system will be allocated.
   * Packets leaving that don't have a destination port of `53`, `80` or `25565` will be
     redirected to the generic tcp listener of the transparent proxy.
 
-**Systemd notes**
+### Systemd notes
 
 When using systemd, `MacAddressPolicy` needs to be set to `none`. Otherwise, there appears to be a race condition where our configured
 MAC address configured on the host-side veth peer will not be picked up. This is because since version 242, systemd will set a persistent 
