@@ -7,6 +7,7 @@ toolchain go1.23.3
 require (
 	github.com/bramvdbogaerde/go-scp v1.5.0
 	github.com/cilium/ebpf v0.15.0
+	github.com/cncf/xds/go v0.0.0-20240723142845-024c85f92f20
 	github.com/containernetworking/cni v1.2.0
 	github.com/containernetworking/plugins v1.5.0
 	github.com/envoyproxy/go-control-plane v0.13.1
@@ -33,7 +34,6 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chigopher/pathlib v0.19.1 // indirect
-	github.com/cncf/xds/go v0.0.0-20240723142845-024c85f92f20 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
 	github.com/coreos/go-iptables v0.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
