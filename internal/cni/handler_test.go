@@ -16,7 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package ptpnat_test
+package cni_test
 
 import (
 	"errors"
@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/spacechunks/platform/internal/ptpnat"
+	"github.com/spacechunks/platform/internal/cni"
 	"github.com/spacechunks/platform/test"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -63,7 +63,7 @@ func TestIfaceConfig(t *testing.T) {
 		nsPath       = "/var/run/netns/" + name
 	)
 
-	h, err := ptpnat.NewHandler()
+	h, err := cni.NewHandler()
 	require.NoError(t, err)
 
 	defer func() {
@@ -88,16 +88,16 @@ func TestIfaceConfig(t *testing.T) {
 
 	require.NotNil(t, podVeth, "pod veth not found")
 	require.NotNil(t, hostVeth, "host veth not found")
-	require.Equal(t, ptpnat.VethMTU, podVeth.Attrs().MTU)
+	require.Equal(t, cni.VethMTU, podVeth.Attrs().MTU)
 
 	err = ns.WithNetNSPath(nsPath, func(netNS ns.NetNS) error {
-		test.RequireAddrConfigured(t, podVethName, ptpnat.PodVethCIDR.String())
+		test.RequireAddrConfigured(t, podVethName, cni.PodVethCIDR.String())
 		return nil
 	})
 	require.NoError(t, err)
 
 	test.RequireAddrConfigured(t, hostVethName, ips[0].Address.String())
-	require.Equal(t, ptpnat.HostVethMAC.String(), hostVeth.Attrs().HardwareAddr.String())
+	require.Equal(t, cni.HostVethMAC.String(), hostVeth.Attrs().HardwareAddr.String())
 }
 
 func TestConfigureSNAT(t *testing.T) {
@@ -128,7 +128,7 @@ func TestConfigureSNAT(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			iface, veth := test.AddRandVethPair(t)
 
-			h, err := ptpnat.NewHandler()
+			h, err := cni.NewHandler()
 			require.NoError(t, err)
 
 			tt.prep(t, veth)
