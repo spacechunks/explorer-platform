@@ -5,3 +5,7 @@ conf
 work/
 nodedev/ptpnat
 /platformd
+
+# compiled bpf programs
+internal/datapath/*_bpfel.*
+internal/datapath/*_bpfeb*

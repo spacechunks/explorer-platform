@@ -34,7 +34,7 @@ int arp(struct __sk_buff *ctx)
     __builtin_memcpy(eth_src, ethh->h_source, ETH_ALEN);
 
     __builtin_memcpy(ethh->h_dest, eth_src, ETH_ALEN);
-    __builtin_memcpy(ethh->h_source, host_veth_mac, ETH_ALEN);
+    __builtin_memcpy(ethh->h_source, host_peer_mac, ETH_ALEN);
 
     __be16 arp_op;
     bpf_skb_load_bytes(ctx, ARP_OP_OFF, &arp_op, sizeof(arp_op));
@@ -49,7 +49,7 @@ int arp(struct __sk_buff *ctx)
     arp_op = bpf_htons(ARPOP_REPLY);
 
     bpf_skb_store_bytes(ctx, ARP_OP_OFF, &arp_op, sizeof(arp_op), 0);
-    bpf_skb_store_bytes(ctx, ARP_SHA_OFF, &host_veth_mac, ETH_ALEN, 0);
+    bpf_skb_store_bytes(ctx, ARP_SHA_OFF, &host_peer_mac, ETH_ALEN, 0);
     bpf_skb_store_bytes(ctx, ARP_THA_OFF, &eth_src, ETH_ALEN, 0);
     bpf_skb_store_bytes(ctx, ARP_SIP_OFF, &tip, sizeof(tip), 0);
     bpf_skb_store_bytes(ctx, ARP_TIP_OFF, &sip, sizeof(sip), 0);
