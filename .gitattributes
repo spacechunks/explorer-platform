@@ -1,2 +1,2 @@
 * text=auto eol=lf
-internal/ptpnat/bpf/include/** linguist-vendored
+internal/datapath/bpf/include/** linguist-vendored
