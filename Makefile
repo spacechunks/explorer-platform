@@ -13,8 +13,8 @@ setup:
 vmlinux:
 	bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/tun/bpf/include/vmlinux.h
 
-.PHONY: gogen_all
-gogen_all:
+.PHONY: gogen
+gogen:
 	go generate ./...
 
 .PHONY: genproto
