@@ -31,7 +31,7 @@ import (
 )
 
 func TestAddSNATTarget(t *testing.T) {
-	objs, err := LoadObjects()
+	objs, err := LoadBPF()
 	require.NoError(t, err)
 
 	var (
@@ -61,7 +61,7 @@ func TestAddSNATTarget(t *testing.T) {
 }
 
 func TestAddDNATTarget(t *testing.T) {
-	objs, err := LoadObjects()
+	objs, err := LoadBPF()
 	require.NoError(t, err)
 
 	var (

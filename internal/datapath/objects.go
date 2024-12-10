@@ -28,24 +28,33 @@ import (
 	"github.com/cilium/ebpf/link"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 snat ../bpf/snat.c -- -I ../bpf/include
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 dnat ../bpf/dnat.c -- -I ../bpf/include
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 arp ../bpf/arp.c -- -I ../bpf/include
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 snat ./bpf/snat.c -- -I ./bpf/lib -I ./bpf/include
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 dnat ./bpf/dnat.c -- -I ./bpf/lib -I ./bpf/include
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 arp ./bpf/arp.c -- -I ./bpf/lib -I ./bpf/include
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-18 -strip llvm-strip-18 tproxy ./bpf/tproxy.c -- -I ./bpf/lib -I ./bpf/include
 
-const pinPath = "/sys/fs/bpf"
+const (
+	progPinPath = "/sys/fs/bpf/progs"
+	mapPinPath  = "/sys/fs/bpf/maps"
+)
 
-type Objects struct {
-	snatObjs snatObjects
-	dnatObjs dnatObjects
-	arpObjs  arpObjects
-	pinPath  string
+type Iface struct {
+	Name  string
+	Index int
 }
 
-func LoadObjects() (*Objects, error) {
+type Objects struct {
+	snatObjs   snatObjects
+	dnatObjs   dnatObjects
+	arpObjs    arpObjects
+	tproxyObjs tproxyObjects
+}
+
+func LoadBPF() (*Objects, error) {
 	var snatObjs snatObjects
 	if err := loadSnatObjects(&snatObjs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
-			PinPath: pinPath,
+			PinPath: mapPinPath,
 		},
 	}); err != nil {
 		return nil, fmt.Errorf("load snat objs: %w", err)
@@ -54,7 +63,7 @@ func LoadObjects() (*Objects, error) {
 	var dnatObjs dnatObjects
 	if err := loadDnatObjects(&dnatObjs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
-			PinPath: pinPath,
+			PinPath: mapPinPath,
 		},
 	}); err != nil {
 		return nil, fmt.Errorf("load dnat objs: %w", err)
@@ -65,17 +74,22 @@ func LoadObjects() (*Objects, error) {
 		return nil, fmt.Errorf("load arp objs: %w", err)
 	}
 
+	var tproxyObjs tproxyObjects
+	if err := loadTproxyObjects(&tproxyObjs, nil); err != nil {
+		return nil, fmt.Errorf("load tproxy objs: %w", err)
+	}
+
 	return &Objects{
-		snatObjs: snatObjs,
-		dnatObjs: dnatObjs,
-		arpObjs:  arpObjs,
-		pinPath:  pinPath,
+		snatObjs:   snatObjs,
+		dnatObjs:   dnatObjs,
+		arpObjs:    arpObjs,
+		tproxyObjs: tproxyObjs,
 	}, nil
 }
 
-func (o *Objects) AttachAndPinSNAT(ifaceName string, ifaceIndex int) error {
+func (o *Objects) AttachAndPinSNAT(iface Iface) error {
 	l, err := link.AttachTCX(link.TCXOptions{
-		Interface: ifaceIndex,
+		Interface: iface.Index,
 		Program:   o.snatObjs.Snat,
 		Attach:    ebpf.AttachTCXIngress,
 	})
@@ -84,16 +98,16 @@ func (o *Objects) AttachAndPinSNAT(ifaceName string, ifaceIndex int) error {
 	}
 
 	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("%s/ptp_snat_%s", o.pinPath, ifaceName)); err != nil {
+	if err := l.Pin(fmt.Sprintf("%s/snat_%s", progPinPath, iface.Name)); err != nil {
 		return fmt.Errorf("pin link: %w", err)
 	}
 
 	return nil
 }
 
-func (o *Objects) AttachAndPinDNAT(ifaceName string, ifaceIndex int) error {
+func (o *Objects) AttachAndPinDNAT(iface Iface) error {
 	l, err := link.AttachTCX(link.TCXOptions{
-		Interface: ifaceIndex,
+		Interface: iface.Index,
 		Program:   o.dnatObjs.Dnat,
 		Attach:    ebpf.AttachTCXIngress,
 	})
@@ -102,26 +116,78 @@ func (o *Objects) AttachAndPinDNAT(ifaceName string, ifaceIndex int) error {
 	}
 
 	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("%s/ptp_dnat_%s", o.pinPath, ifaceName)); err != nil {
+	if err := l.Pin(fmt.Sprintf("%s/dnat_%s", progPinPath, iface.Name)); err != nil {
 		return fmt.Errorf("pin link: %w", err)
 	}
 
 	return nil
 }
 
-func (o *Objects) AttachAndPinARP(ifaceName string, ifaceIndex int) error {
+func (o *Objects) AttachAndPinARP(iface Iface) error {
 	l, err := link.AttachTCX(link.TCXOptions{
-		Interface: ifaceIndex,
+		Interface: iface.Index,
 		Program:   o.arpObjs.Arp,
 		Attach:    ebpf.AttachTCXIngress,
+	})
+	if err != nil {
+	}
+
+	// pin because cni is short-lived
+	if err := l.Pin(fmt.Sprintf("%s/arp_%s", progPinPath, iface.Name)); err != nil {
+		return fmt.Errorf("pin link: %w", err)
+	}
+
+	return nil
+}
+
+func (o *Objects) AttachAndPinGetsockopt(cgroupPath string) error {
+	l, err := link.AttachCgroup(link.CgroupOptions{
+		Path:    cgroupPath,
+		Attach:  ebpf.AttachCGroupGetsockopt,
+		Program: o.tproxyObjs.Getsockopt,
 	})
 	if err != nil {
 		return fmt.Errorf("attach: %w", err)
 	}
 
-	// pin because cni is short-lived
-	if err := l.Pin(fmt.Sprintf("%s/ptp_arp_%s", o.pinPath, ifaceName)); err != nil {
-		return fmt.Errorf("pin link: %w", err)
+	if err := l.Pin(fmt.Sprintf("%s/cgroup_getsockopt", progPinPath)); err != nil {
+		return fmt.Errorf("pin: %w", err)
+	}
+
+	return nil
+}
+
+func (o *Objects) AttachAndPinTProxyTCEgress(ctrPeer Iface, hostPeer Iface) error {
+	opts := []struct {
+		pinPrefix string
+		iface     Iface
+		prog      *ebpf.Program
+	}{
+		{
+			pinPrefix: "ctr_peer_egress",
+			iface:     ctrPeer,
+			prog:      o.tproxyObjs.CtrPeerEgress,
+		},
+		{
+			pinPrefix: "host_peer_egress",
+			iface:     hostPeer,
+			prog:      o.tproxyObjs.HostPeerEgress,
+		},
+	}
+
+	for _, opt := range opts {
+		l, err := link.AttachTCX(link.TCXOptions{
+			Interface: opt.iface.Index,
+			Program:   opt.prog,
+			Attach:    ebpf.AttachTCXEgress,
+		})
+		if err != nil {
+			return fmt.Errorf("attach %s: %w", opt.pinPrefix, err)
+		}
+
+		if err := l.Pin(fmt.Sprintf("%s/%s_%s", progPinPath, opt.pinPrefix, opt.iface.Name)); err != nil {
+			return fmt.Errorf("pin %s: %w", opt.pinPrefix, err)
+		}
 	}
 
 	return nil

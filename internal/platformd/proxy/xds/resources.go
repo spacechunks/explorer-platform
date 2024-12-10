@@ -138,4 +138,5 @@ func TCPProxyListener(listenerCfg ListenerConfig, proxyCfg TCPProxyConfig) (*lis
 			},
 		},
 	}
+	return l, nil
 }

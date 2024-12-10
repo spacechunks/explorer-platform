@@ -22,8 +22,9 @@ package datapath_test
 
 import (
 	"fmt"
-	"github.com/spacechunks/platform/internal/datapath"
 	"testing"
+
+	"github.com/spacechunks/platform/internal/datapath"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -33,7 +34,7 @@ import (
 )
 
 func TestAttachBPFProgs(t *testing.T) {
-	objects, err := datapath.LoadObjects()
+	objects, err := datapath.LoadBPF()
 	require.NoError(t, err)
 
 	tests := []struct {

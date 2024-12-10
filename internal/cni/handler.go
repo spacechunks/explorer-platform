@@ -22,9 +22,10 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/spacechunks/platform/internal/datapath"
 	"net"
 	"net/netip"
+
+	"github.com/spacechunks/platform/internal/datapath"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ipam"
@@ -56,7 +57,7 @@ type cniHandler struct {
 }
 
 func NewHandler() (Handler, error) {
-	objs, err := datapath.LoadObjects()
+	objs, err := datapath.LoadBPF()
 	if err != nil {
 		return nil, err
 	}
@@ -72,11 +73,11 @@ func (h *cniHandler) AttachHostVethBPF(ifaceName string) error {
 		return fmt.Errorf("get iface: %w", err)
 	}
 
-	if err := h.bpf.AttachAndPinSNAT(ifaceName, iface.Index); err != nil {
+	if err := h.bpf.AttachAndPinSNAT(datapath.Iface{Name: ifaceName, Index: iface.Index}); err != nil {
 		return fmt.Errorf("attach snat bpf: %w", err)
 	}
 
-	if err := h.bpf.AttachAndPinARP(ifaceName, iface.Index); err != nil {
+	if err := h.bpf.AttachAndPinARP(datapath.Iface{Name: ifaceName, Index: iface.Index}); err != nil {
 		return fmt.Errorf("attach arp bpf: %w", err)
 	}
 
@@ -141,7 +142,7 @@ func (h *cniHandler) AttachDNATBPF(ifaceName string) error {
 		return fmt.Errorf("get iface: %w", err)
 	}
 
-	if err := h.bpf.AttachAndPinDNAT(ifaceName, iface.Index); err != nil {
+	if err := h.bpf.AttachAndPinDNAT(datapath.Iface{Name: ifaceName, Index: iface.Index}); err != nil {
 		return fmt.Errorf("attach dnat bpf: %w", err)
 	}
 
