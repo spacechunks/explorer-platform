@@ -21,14 +21,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package testdata
 
-//nolint
-
 import _ "embed"
 
 //go:generate ./build-img.sh
 
 //go:embed unpack-img.tar.gz
-var UnpackImage []byte
+var UnpackImage []byte //nolint
 
 //go:embed repack-img.tar.gz
-var RepackImage []byte
+var RepackImage []byte //nolint
