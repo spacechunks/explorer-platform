@@ -33,7 +33,7 @@ import (
 )
 
 func TestAttachBPFProgs(t *testing.T) {
-	objects, err := datapath.LoadObjects()
+	objects, err := datapath.LoadBPF()
 	require.NoError(t, err)
 
 	tests := []struct {

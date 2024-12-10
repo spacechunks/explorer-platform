@@ -23,7 +23,7 @@ func main() {
 		proxyServiceListenSock = fs.String("management-server-listen-sock", "/var/run/platformd/platformd.sock", "path to the unix domain socket to listen on")
 		criListenSock          = fs.String("cri-listen-sock", "/var/run/crio/crio.sock", "path to the unix domain socket the CRI is listening on")
 		envoyImage             = fs.String("envoy-image", "", "container image to use for envoy")
-		coreDNSImage           = fs.String("coredns-image", "", "container image to use for coredns")
+		getsockoptCgroup       = fs.String("getsockopt-cgroup", "", "container image to use for coredns")
 		_                      = fs.String("config", "/etc/platformd/config.json", "path to the config file")
 	)
 	if err := ff.Parse(fs, os.Args[1:],
@@ -39,7 +39,7 @@ func main() {
 			ProxyServiceListenSock: *proxyServiceListenSock,
 			CRIListenSock:          *criListenSock,
 			EnvoyImage:             *envoyImage,
-			CoreDNSImage:           *coreDNSImage,
+			GetsockoptCGroup:       *getsockoptCgroup,
 		}
 		ctx    = context.Background()
 		server = platformd.NewServer(logger)

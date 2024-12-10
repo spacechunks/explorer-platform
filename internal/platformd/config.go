@@ -4,5 +4,5 @@ type Config struct {
 	ProxyServiceListenSock string
 	CRIListenSock          string
 	EnvoyImage             string
-	CoreDNSImage           string
+	GetsockoptCGroup       string
 }

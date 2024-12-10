@@ -3,6 +3,7 @@ package platformd
 import (
 	"context"
 	"fmt"
+	"github.com/spacechunks/platform/internal/datapath"
 	"log/slog"
 	"net"
 	"os"
@@ -52,8 +53,17 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 	proxyv1alpha1.RegisterProxyServiceServer(mgmtServer, proxyServer)
 	xds.CreateAndRegisterServer(ctx, mgmtServer, xdsCfg)
 
+	bpf, err := datapath.LoadBPF()
+	if err != nil {
+		return fmt.Errorf("failed to load bpf: %w", err)
+	}
+
 	if err := proxySvc.ApplyOriginalDstCluster(ctx); err != nil {
 		return fmt.Errorf("apply original dst cluster: %w", err)
+	}
+	
+	if err := bpf.AttachAndPinGetsockopt(cfg.GetsockoptCGroup); err != nil {
+		return fmt.Errorf("attach getsockopt: %w", err)
 	}
 
 	// before we start our grpc services make sure our system workloads are running

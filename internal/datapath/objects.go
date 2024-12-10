@@ -50,7 +50,7 @@ type Objects struct {
 	tproxyObjs tproxyObjects
 }
 
-func LoadObjects() (*Objects, error) {
+func LoadBPF() (*Objects, error) {
 	var snatObjs snatObjects
 	if err := loadSnatObjects(&snatObjs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
