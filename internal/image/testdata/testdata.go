@@ -26,7 +26,7 @@ import _ "embed"
 //go:generate ./build-img.sh
 
 //go:embed unpack-img.tar.gz
-var UnpackImage []byte //nolint
+var UnpackImage []byte
 
 //go:embed repack-img.tar.gz
-var RepackImage []byte //nolint
+var RepackImage []byte

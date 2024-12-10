@@ -5,7 +5,3 @@ conf
 work/
 nodedev/ptpnat
 /platformd
-
-# testdata
-repack-img.tar.gz
-unpack-img.tar.gz
