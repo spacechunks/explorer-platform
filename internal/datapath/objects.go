@@ -130,6 +130,7 @@ func (o *Objects) AttachAndPinARP(iface Iface) error {
 		Attach:    ebpf.AttachTCXIngress,
 	})
 	if err != nil {
+		return fmt.Errorf("attach: %w", err)
 	}
 
 	// pin because cni is short-lived

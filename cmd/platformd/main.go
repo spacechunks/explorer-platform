@@ -20,11 +20,11 @@ func main() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 		fs     = flag.NewFlagSet("platformd", flag.ContinueOnError)
 
-		proxyServiceListenSock = fs.String("management-server-listen-sock", "/var/run/platformd/platformd.sock", "path to the unix domain socket to listen on")
-		criListenSock          = fs.String("cri-listen-sock", "/var/run/crio/crio.sock", "path to the unix domain socket the CRI is listening on")
-		envoyImage             = fs.String("envoy-image", "", "container image to use for envoy")
-		getsockoptCgroup       = fs.String("getsockopt-cgroup", "", "container image to use for coredns")
-		_                      = fs.String("config", "/etc/platformd/config.json", "path to the config file")
+		proxyServiceListenSock = fs.String("management-server-listen-sock", "/var/run/platformd/platformd.sock", "path to the unix domain socket to listen on") //nolint:lll
+		criListenSock          = fs.String("cri-listen-sock", "/var/run/crio/crio.sock", "path to the unix domain socket the CRI is listening on")              //nolint:lll
+		envoyImage             = fs.String("envoy-image", "", "container image to use for envoy")                                                               //nolint:lll
+		getsockoptCgroup       = fs.String("getsockopt-cgroup", "", "container image to use for coredns")                                                       //nolint:lll
+		_                      = fs.String("config", "/etc/platformd/config.json", "path to the config file")                                                   //nolint:lll
 	)
 	if err := ff.Parse(fs, os.Args[1:],
 		ff.WithEnvVarPrefix("PLATFORMD"),
