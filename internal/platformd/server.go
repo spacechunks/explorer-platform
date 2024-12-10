@@ -3,11 +3,12 @@ package platformd
 import (
 	"context"
 	"fmt"
-	"github.com/spacechunks/platform/internal/datapath"
 	"log/slog"
 	"net"
 	"os"
 	"path"
+
+	"github.com/spacechunks/platform/internal/datapath"
 
 	"github.com/spacechunks/platform/internal/platformd/proxy/xds"
 
@@ -61,7 +62,7 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 	if err := proxySvc.ApplyOriginalDstCluster(ctx); err != nil {
 		return fmt.Errorf("apply original dst cluster: %w", err)
 	}
-	
+
 	if err := bpf.AttachAndPinGetsockopt(cfg.GetsockoptCGroup); err != nil {
 		return fmt.Errorf("attach getsockopt: %w", err)
 	}

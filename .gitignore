@@ -6,6 +6,10 @@ work/
 nodedev/ptpnat
 /platformd
 
+# testdata
+repack-img.tar.gz
+unpack-img.tar.gz
+
 # compiled bpf programs
-internal/datapath/*_bpfel.*
-internal/datapath/*_bpfeb*
+*_bpfel.*
+*_bpfeb.*
