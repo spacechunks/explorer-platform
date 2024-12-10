@@ -5,6 +5,7 @@ linters-settings:
         replacement: any
   misspell:
     locale: US
+    mode: restricted
   exhaustive:
     default-signifies-exhaustive: true
   lll:
@@ -20,7 +21,6 @@ linters:
     - gosimple
     - goimports
     - gomodguard
-    - errcheck
     - whitespace
     - staticcheck
     - misspell

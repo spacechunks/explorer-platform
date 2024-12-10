@@ -179,11 +179,11 @@ func UnpackDir(img ociv1.Image, path string) ([]File, error) {
 					dir = filepath.Dir(abs)
 					// remove all files under p
 					rmAll = func(m map[string]File, p string) {
-						for k := range final {
+						for k := range m {
 							if !strings.HasPrefix(k, p) {
 								continue
 							}
-							delete(final, k)
+							delete(m, k)
 						}
 					}
 				)

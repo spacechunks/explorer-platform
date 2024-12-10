@@ -57,6 +57,8 @@ func TestPTPNAT(t *testing.T) {
 	resp, err := http.Get("http://" + testEnv.Servers[0].PublicNet.IPv4.IP.String() + ":80")
 	require.NoError(t, err)
 
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("got %d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -76,7 +78,7 @@ func setup(t *testing.T, ctx context.Context, env *test.Env, addr string) {
 
 	defer scpClient.Close()
 
-	err = fs.WalkDir(nodedev.Files, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(nodedev.Files, ".", func(path string, d fs.DirEntry, _ error) error {
 		if d.IsDir() {
 			return nil
 		}

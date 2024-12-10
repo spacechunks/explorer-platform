@@ -54,7 +54,7 @@ var stdinData = []byte(`
 }
 `)
 
-// TestSetup tests that ip address and mac adress could be allocated
+// TestSetup tests that ip address and mac address could be allocated
 // and configured on the veth-pairs.
 func TestIfaceConfig(t *testing.T) {
 	var (

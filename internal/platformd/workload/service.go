@@ -35,7 +35,11 @@ type criService struct {
 	imgClient runtimev1.ImageServiceClient
 }
 
-func NewService(logger *slog.Logger, rtClient runtimev1.RuntimeServiceClient, imgClient runtimev1.ImageServiceClient) Service {
+func NewService(
+	logger *slog.Logger,
+	rtClient runtimev1.RuntimeServiceClient,
+	imgClient runtimev1.ImageServiceClient,
+) Service {
 	return &criService{
 		logger:    logger,
 		rtClient:  rtClient,
