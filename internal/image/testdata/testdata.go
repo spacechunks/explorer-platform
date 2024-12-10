@@ -1,3 +1,6 @@
+//go:build !codeanalysis
+// +build !codeanalysis
+
 /*
 Explorer Platform, a platform for hosting and discovering Minecraft servers.
 Copyright (C) 2024 Yannic Rieger <oss@76k.io>
@@ -17,6 +20,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 package testdata
+
+//nolint
 
 import _ "embed"
 
