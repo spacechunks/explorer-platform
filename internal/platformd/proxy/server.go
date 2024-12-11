@@ -21,8 +21,8 @@ func NewServer(svc Service) *Server {
 
 func (s *Server) CreateListener(
 	ctx context.Context,
-	req *proxyv1alpha1.CreateListenerRequest,
-) (*proxyv1alpha1.CreateListenerResponse, error) {
+	req *proxyv1alpha1.CreateListenersRequest,
+) (*proxyv1alpha1.CreateListenersResponse, error) {
 	addr, err := netip.ParseAddr(req.Ip)
 	if err != nil {
 		return nil, fmt.Errorf("parse addr: %w", err)
@@ -34,5 +34,5 @@ func (s *Server) CreateListener(
 		return nil, fmt.Errorf("create listener: %w", err)
 	}
 
-	return &proxyv1alpha1.CreateListenerResponse{}, nil
+	return &proxyv1alpha1.CreateListenersResponse{}, nil
 }

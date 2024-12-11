@@ -5,12 +5,12 @@ package platformd.proxy.v1alpha1;
 option go_package = "github.com/spacechunks/explorer-platform/api/platformd/proxy/v1alpha1";
 
 service ProxyService {
-  rpc CreateListener(CreateListenerRequest) returns (CreateListenerResponse);
+  rpc CreateListeners(CreateListenersRequest) returns (CreateListenersResponse);
 }
 
-message CreateListenerRequest {
+message CreateListenersRequest {
   string workloadID = 1;
   string ip = 2;
 }
 
-message CreateListenerResponse {}
+message CreateListenersResponse {}

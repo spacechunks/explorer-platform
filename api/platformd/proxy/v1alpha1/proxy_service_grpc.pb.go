@@ -8,7 +8,6 @@ package v1alpha1
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -20,14 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ProxyService_CreateListener_FullMethodName = "/platformd.proxy.v1alpha1.ProxyService/CreateListener"
+	ProxyService_CreateListeners_FullMethodName = "/platformd.proxy.v1alpha1.ProxyService/CreateListeners"
 )
 
 // ProxyServiceClient is the client API for ProxyService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ProxyServiceClient interface {
-	CreateListener(ctx context.Context, in *CreateListenerRequest, opts ...grpc.CallOption) (*CreateListenerResponse, error)
+	CreateListeners(ctx context.Context, in *CreateListenersRequest, opts ...grpc.CallOption) (*CreateListenersResponse, error)
 }
 
 type proxyServiceClient struct {
@@ -38,10 +37,10 @@ func NewProxyServiceClient(cc grpc.ClientConnInterface) ProxyServiceClient {
 	return &proxyServiceClient{cc}
 }
 
-func (c *proxyServiceClient) CreateListener(ctx context.Context, in *CreateListenerRequest, opts ...grpc.CallOption) (*CreateListenerResponse, error) {
+func (c *proxyServiceClient) CreateListeners(ctx context.Context, in *CreateListenersRequest, opts ...grpc.CallOption) (*CreateListenersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CreateListenerResponse)
-	err := c.cc.Invoke(ctx, ProxyService_CreateListener_FullMethodName, in, out, cOpts...)
+	out := new(CreateListenersResponse)
+	err := c.cc.Invoke(ctx, ProxyService_CreateListeners_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +51,7 @@ func (c *proxyServiceClient) CreateListener(ctx context.Context, in *CreateListe
 // All implementations must embed UnimplementedProxyServiceServer
 // for forward compatibility.
 type ProxyServiceServer interface {
-	CreateListener(context.Context, *CreateListenerRequest) (*CreateListenerResponse, error)
+	CreateListeners(context.Context, *CreateListenersRequest) (*CreateListenersResponse, error)
 	mustEmbedUnimplementedProxyServiceServer()
 }
 
@@ -63,8 +62,8 @@ type ProxyServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedProxyServiceServer struct{}
 
-func (UnimplementedProxyServiceServer) CreateListener(context.Context, *CreateListenerRequest) (*CreateListenerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateListener not implemented")
+func (UnimplementedProxyServiceServer) CreateListeners(context.Context, *CreateListenersRequest) (*CreateListenersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateListeners not implemented")
 }
 func (UnimplementedProxyServiceServer) mustEmbedUnimplementedProxyServiceServer() {}
 func (UnimplementedProxyServiceServer) testEmbeddedByValue()                      {}
@@ -87,20 +86,20 @@ func RegisterProxyServiceServer(s grpc.ServiceRegistrar, srv ProxyServiceServer)
 	s.RegisterService(&ProxyService_ServiceDesc, srv)
 }
 
-func _ProxyService_CreateListener_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateListenerRequest)
+func _ProxyService_CreateListeners_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateListenersRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProxyServiceServer).CreateListener(ctx, in)
+		return srv.(ProxyServiceServer).CreateListeners(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ProxyService_CreateListener_FullMethodName,
+		FullMethod: ProxyService_CreateListeners_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProxyServiceServer).CreateListener(ctx, req.(*CreateListenerRequest))
+		return srv.(ProxyServiceServer).CreateListeners(ctx, req.(*CreateListenersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -113,8 +112,8 @@ var ProxyService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ProxyServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreateListener",
-			Handler:    _ProxyService_CreateListener_Handler,
+			MethodName: "CreateListeners",
+			Handler:    _ProxyService_CreateListeners_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
