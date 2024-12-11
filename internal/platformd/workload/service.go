@@ -84,7 +84,6 @@ func (s *criService) EnsureWorkload(ctx context.Context, opts CreateOptions, lab
 // returns the generated uuidv7 ID of the workload. this id is also used in the
 // pods metadata uid field.
 func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) (string, error) {
-
 	id, err := uuid.NewV7()
 	if err != nil {
 		return "", fmt.Errorf("new uuid: %w", err)
