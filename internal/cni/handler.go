@@ -208,9 +208,6 @@ func configureHostPeer(ips []*current.IPConfig, ifaceName string) error {
 	if err := configureIface(ifaceName, &ip, &HostVethMAC); err != nil {
 		return fmt.Errorf("configure iface (%s): %w", ip.String(), err)
 	}
-	/*for _, ip := range ips {
-
-	}*/
 	return nil
 }
 
