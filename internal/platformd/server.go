@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"path"
 
@@ -38,6 +39,11 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("failed to create cri grpc client: %w", err)
 	}
 
+	dnsUpstream, err := netip.ParseAddrPort(cfg.DNSServer)
+	if err != nil {
+		return fmt.Errorf("failed to parse dns server address: %w", err)
+	}
+
 	var (
 		xdsCfg = cache.NewSnapshotCache(true, cache.IDHash{}, nil)
 		wlSvc  = workload.NewService(
@@ -45,7 +51,13 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 			runtimev1.NewRuntimeServiceClient(criConn),
 			runtimev1.NewImageServiceClient(criConn),
 		)
-		proxySvc = proxy.NewService(xds.NewMap(xdsCfg))
+		proxySvc = proxy.NewService(
+			s.logger,
+			proxy.Config{
+				DNSUpstream: dnsUpstream,
+			},
+			xds.NewMap(xdsCfg),
+		)
 
 		mgmtServer  = grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 		proxyServer = proxy.NewServer(proxySvc)

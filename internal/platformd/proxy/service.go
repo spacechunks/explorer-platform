@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"time"
 
@@ -13,49 +14,50 @@ import (
 )
 
 type Service interface {
-	CreateListener(ctx context.Context, workloadID string, addr netip.Addr) error
-	ConfigureDNS(ctx context.Context, listener, upstreamAddr netip.AddrPort) error
+	CreateListeners(ctx context.Context, workloadID string, addr netip.Addr) error
 	ApplyOriginalDstCluster(ctx context.Context) error
 }
 
 type proxyService struct {
+	logger      *slog.Logger
+	cfg         Config
 	resourceMap *xds.Map
 }
 
-func NewService(resourceMap *xds.Map) Service {
+func NewService(logger *slog.Logger, cfg Config, resourceMap *xds.Map) Service {
 	return &proxyService{
+		logger:      logger,
+		cfg:         cfg,
 		resourceMap: resourceMap,
 	}
 }
 
-func (s *proxyService) CreateListener(ctx context.Context, workloadID string, addr netip.Addr) error {
-	rg, err := workloadResources(
+// CreateListeners creates HTTP, TCP as well as UDP(DNS) and TCP(DNS) listeners for the provided
+// workload. this will fail if the workload does not exist.
+func (s *proxyService) CreateListeners(ctx context.Context, workloadID string, addr netip.Addr) error {
+	wrg, err := workloadResources(
 		workloadID,
-		netip.AddrPortFrom(addr, 0),
-		netip.AddrPortFrom(addr, 0),
+		netip.AddrPortFrom(addr, proxyHTTPPort),
+		netip.AddrPortFrom(addr, proxyTCPPort),
 		originalDstClusterName,
 	)
 	if err != nil {
 		return fmt.Errorf("create workload resources: %w", err)
 	}
 
-	if _, err := s.resourceMap.Apply(ctx, workloadID, rg); err != nil {
-		return fmt.Errorf("apply envoy config: %w", err)
-	}
-
-	return nil
-}
-
-// ConfigureDNS configures a UDP and TCP listener listening on the passed address
-// redirecting all traffic to upstreamAddr.
-func (s *proxyService) ConfigureDNS(ctx context.Context, listener, upstreamAddr netip.AddrPort) error {
-	const cluster = "dns"
-	rg, err := dnsResourceGroup(cluster, listener, upstreamAddr)
+	drg, err := dnsResourceGroup(dnsCluster, netip.AddrPortFrom(addr, proxyDNSPort), s.cfg.DNSUpstream)
 	if err != nil {
 		return fmt.Errorf("create dns resources: %w", err)
 	}
 
-	if _, err := s.resourceMap.Apply(ctx, dnsGroupKey, rg); err != nil {
+	merged := xds.ResourceGroup{}
+	merged.Listeners = append(wrg.Listeners, drg.Listeners...)
+	merged.Clusters = append(wrg.Clusters, drg.Clusters...)
+	merged.CLAS = append(wrg.CLAS, drg.CLAS...)
+
+	s.logger.InfoContext(ctx, "applying workload resources", "workload_id", workloadID)
+
+	if _, err := s.resourceMap.Apply(ctx, workloadID, merged); err != nil {
 		return fmt.Errorf("apply envoy config: %w", err)
 	}
 

@@ -24,6 +24,7 @@ func main() {
 		criListenSock          = fs.String("cri-listen-sock", "/var/run/crio/crio.sock", "path to the unix domain socket the CRI is listening on")              //nolint:lll
 		envoyImage             = fs.String("envoy-image", "", "container image to use for envoy")                                                               //nolint:lll
 		getsockoptCgroup       = fs.String("getsockopt-cgroup", "", "container image to use for coredns")                                                       //nolint:lll
+		dnsServer              = fs.String("dns-server", "", "dns server used by the containers")                                                               //nolint:lll
 		_                      = fs.String("config", "/etc/platformd/config.json", "path to the config file")                                                   //nolint:lll
 	)
 	if err := ff.Parse(fs, os.Args[1:],
@@ -40,6 +41,7 @@ func main() {
 			CRIListenSock:          *criListenSock,
 			EnvoyImage:             *envoyImage,
 			GetsockoptCGroup:       *getsockoptCgroup,
+			DNSServer:              *dnsServer,
 		}
 		ctx    = context.Background()
 		server = platformd.NewServer(logger)

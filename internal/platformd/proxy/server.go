@@ -30,7 +30,7 @@ func (s *Server) CreateListener(
 
 	// TODO: if workload does not exist return err
 
-	if err := s.svc.CreateListener(ctx, req.WorkloadID, addr); err != nil {
+	if err := s.svc.CreateListeners(ctx, req.WorkloadID, addr); err != nil {
 		return nil, fmt.Errorf("create listener: %w", err)
 	}
 

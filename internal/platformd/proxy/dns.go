@@ -18,11 +18,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-const (
-	dnsGroupKey            = "dns"
-	originalDstClusterName = "public"
-)
-
 func dnsResourceGroup(clusterName string, listenerAddr, upstreamAddr netip.AddrPort) (xds.ResourceGroup, error) {
 	udpCLA, udpListener, err := dnsUDPResources(clusterName, listenerAddr, upstreamAddr)
 	if err != nil {

@@ -5,4 +5,5 @@ type Config struct {
 	CRIListenSock          string
 	EnvoyImage             string
 	GetsockoptCGroup       string
+	DNSServer              string
 }
