@@ -25,7 +25,7 @@ type CreateOptions struct {
 const podLogDir = "/var/log/platformd/pods"
 
 type Service interface {
-	CreateWorkload(ctx context.Context, opts CreateOptions) error
+	CreateWorkload(ctx context.Context, opts CreateOptions) (string, error)
 	EnsureWorkload(ctx context.Context, opts CreateOptions, labelSelector map[string]string) error
 }
 
@@ -74,23 +74,32 @@ func (s *criService) EnsureWorkload(ctx context.Context, opts CreateOptions, lab
 		"label_selector", labelSelector,
 	)
 
-	if err := s.CreateWorkload(ctx, opts); err != nil {
+	if _, err := s.CreateWorkload(ctx, opts); err != nil {
 		return fmt.Errorf("create pod: %w", err)
 	}
 	return nil
 }
 
-func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) error {
-	logger := s.logger.With("pod_name", opts.Name, "namespace", opts.Namespace)
+// CreateWorkload calls the CRI to create a new pod defined by [CreateOptions].
+// returns the generated uuidv7 ID of the workload. this id is also used in the
+// pods metadata uid field.
+func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) (string, error) {
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return "", fmt.Errorf("new uuid: %w", err)
+	}
+
+	logger := s.logger.With("workload_id", id.String(), "pod_name", opts.Name, "namespace", opts.Namespace)
 
 	if err := s.pullImageIfNotPresent(ctx, logger, opts.Image); err != nil {
-		return fmt.Errorf("pull image if not present: %w", err)
+		return "", fmt.Errorf("pull image if not present: %w", err)
 	}
 
 	sboxCfg := &runtimev1.PodSandboxConfig{
 		Metadata: &runtimev1.PodSandboxMetadata{
 			Name:      opts.Name,
-			Uid:       uuid.New().String(),
+			Uid:       id.String(),
 			Namespace: opts.Namespace,
 		},
 		Hostname:     opts.Hostname,
@@ -109,7 +118,7 @@ func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) err
 		Config: sboxCfg,
 	})
 	if err != nil {
-		return fmt.Errorf("create pod: %w", err)
+		return "", fmt.Errorf("create pod: %w", err)
 	}
 
 	logger = logger.With("pod_id", sboxResp.PodSandboxId)
@@ -132,17 +141,17 @@ func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) err
 		SandboxConfig: sboxCfg,
 	})
 	if err != nil {
-		return fmt.Errorf("create container: %w", err)
+		return "", fmt.Errorf("create container: %w", err)
 	}
 
 	if _, err := s.rtClient.StartContainer(ctx, &runtimev1.StartContainerRequest{
 		ContainerId: ctrResp.ContainerId,
 	}); err != nil {
-		return fmt.Errorf("start container: %w", err)
+		return "", fmt.Errorf("start container: %w", err)
 	}
 
 	logger.InfoContext(ctx, "started container", "container_id", ctrResp.ContainerId)
-	return nil
+	return id.String(), nil
 }
 
 // pullImageIfNotPresent first calls ListImages then checks if the image is contained in the response.

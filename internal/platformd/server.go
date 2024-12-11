@@ -34,7 +34,7 @@ func NewServer(logger *slog.Logger) *Server {
 }
 
 func (s *Server) Run(ctx context.Context, cfg Config) error {
-	criConn, err := grpc.NewClient("unix://"+cfg.CRIListenSock, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	criConn, err := grpc.NewClient(cfg.CRIListenSock, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to create cri grpc client: %w", err)
 	}
@@ -80,14 +80,13 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 	}
 
 	// before we start our grpc services make sure our system workloads are running
-	labels := workload.SystemWorkloadLabels("envoy")
 	if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
 		Name:             "envoy",
 		Image:            cfg.EnvoyImage,
 		Namespace:        "system",
-		Labels:           labels,
 		NetworkNamespace: workload.NetworkNamespaceHost,
-	}, labels); err != nil {
+		Labels:           workload.SystemWorkloadLabels("envoy"),
+	}, workload.SystemWorkloadLabels("envoy")); err != nil {
 		return fmt.Errorf("ensure envoy: %w", err)
 	}
 
