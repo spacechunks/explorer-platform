@@ -170,12 +170,13 @@ func getWorkloadID(ctx context.Context, criListenSock, ctrID string) (string, er
 	}
 
 	if len(ctrResp.Containers) == 0 {
-		return "", errors.New("container not found")
+		return "", fmt.Errorf("container %s not found", ctrID)
 	}
 
+	podID := ctrResp.Containers[0].PodSandboxId
 	podResp, err := c.ListPodSandbox(ctx, &runtimev1.ListPodSandboxRequest{
 		Filter: &runtimev1.PodSandboxFilter{
-			Id: ctrResp.Containers[0].PodSandboxId,
+			Id: podID,
 		},
 	})
 	if err != nil {
@@ -183,7 +184,7 @@ func getWorkloadID(ctx context.Context, criListenSock, ctrID string) (string, er
 	}
 
 	if len(podResp.Items) == 0 {
-		return "", errors.New("pod not found")
+		return "", fmt.Errorf("pod %s not found", podID)
 	}
 
 	id, ok := podResp.Items[0].Labels[workload.LabelID]
