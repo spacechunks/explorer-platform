@@ -19,7 +19,6 @@ type CreateOptions struct {
 	Hostname         string
 	Labels           map[string]string
 	NetworkNamespace int
-	Args             []string
 }
 
 const podLogDir = "/var/log/platformd/pods"
@@ -133,7 +132,6 @@ func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) (st
 			Image: &runtimev1.ImageSpec{
 				Image: opts.Image,
 			},
-			Args:    opts.Args,
 			Labels:  opts.Labels,
 			LogPath: fmt.Sprintf("%s_%s", opts.Namespace, opts.Name),
 		},
