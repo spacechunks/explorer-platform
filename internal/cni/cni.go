@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cni
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,6 +27,9 @@ import (
 	"os"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
+	proxyv1alpha1 "github.com/spacechunks/platform/api/platformd/proxy/v1alpha1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
@@ -38,7 +42,8 @@ var (
 
 type Conf struct {
 	types.NetConf
-	HostIface string `json:"hostIface"`
+	HostIface           string `json:"hostIface"`
+	PlatformdListenSock string `json:"platformdListenSock"`
 }
 
 type CNI struct {
@@ -59,6 +64,8 @@ func NewCNI(h Handler) *CNI {
 // * configure ip address on host iface and bring it up.
 // * attach snat bpf program to host-side veth peer (tc ingress)
 func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
+	ctx := context.Background()
+
 	var conf Conf
 	if err := json.Unmarshal(args.StdinData, &conf); err != nil {
 		return fmt.Errorf("parse network config: %v", err)
@@ -104,6 +111,22 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 
 	if err := c.handler.AddDefaultRoute(args.Netns); err != nil {
 		return fmt.Errorf("add default route: %w", err)
+	}
+
+	proxyConn, err := grpc.NewClient(
+		"unix://"+conf.PlatformdListenSock,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create proxy service grpc client: %w", err)
+	}
+
+	client := proxyv1alpha1.NewProxyServiceClient(proxyConn)
+	if _, err := client.CreateListeners(ctx, &proxyv1alpha1.CreateListenersRequest{
+		WorkloadID: args.Path,
+		Ip:         ips[0].Address.IP.String(),
+	}); err != nil {
+		return fmt.Errorf("create proxy listeners: %w", err)
 	}
 
 	result := &current.Result{
