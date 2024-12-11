@@ -29,6 +29,9 @@
   * verdicts could be determined by an external source (node agent)
     * https://www.envoyproxy.io/docs/envoy/latest/configuration/listeners/network_filters/ext_authz_filter#config-network-filters-ext-authz
 
+* platformd
+  * retry pod creation with limited attempts
+
 # TODO
   * test handler_linux.go (AdDefaultRoute)
 
