@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 
+	workloadv1alpha1 "github.com/spacechunks/platform/api/platformd/workload/v1alpha1"
 	"github.com/spacechunks/platform/internal/datapath"
 
 	"github.com/spacechunks/platform/internal/platformd/proxy/xds"
@@ -61,9 +62,11 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 
 		mgmtServer  = grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 		proxyServer = proxy.NewServer(proxySvc)
+		wlServer    = workload.NewServer(wlSvc)
 	)
 
 	proxyv1alpha1.RegisterProxyServiceServer(mgmtServer, proxyServer)
+	workloadv1alpha1.RegisterWorkloadServiceServer(mgmtServer, wlServer)
 	xds.CreateAndRegisterServer(ctx, mgmtServer, xdsCfg)
 
 	bpf, err := datapath.LoadBPF()
