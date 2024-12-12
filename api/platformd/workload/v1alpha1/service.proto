@@ -8,6 +8,16 @@ service WorkloadService {
   rpc CreateWorkload(CreateWorkloadRequest) returns (CreateWorkloadResponse);
 }
 
+message Workload {
+  string id = 1;
+  string name = 2;
+  string image = 3;
+  string namespace = 4;
+  string hostname = 5;
+  map<string, string> labels = 6;
+  uint32 network_namespace = 7;
+}
+
 message CreateWorkloadRequest {
   string name = 1;
   string image = 2;
@@ -18,5 +28,5 @@ message CreateWorkloadRequest {
 }
 
 message CreateWorkloadResponse {
-  string id = 1;
+  Workload workload = 1;
 }
