@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package platformd.workload.v1alpha1;
+
+option go_package = "github.com/spacechunks/explorer-platform/api/platformd/workload/v1alpha1";
+
+service WorkloadService {
+  rpc CreateWorkload(CreateWorkloadRequest) returns (CreateWorkloadResponse);
+}
+
+message Workload {
+  string id = 1;
+  string name = 2;
+  string image = 3;
+  string namespace = 4;
+  string hostname = 5;
+  map<string, string> labels = 6;
+  int32 network_namespace_mode = 7;
+}
+
+message CreateWorkloadRequest {
+  string name = 1;
+  string image = 2;
+  string namespace = 3;
+  string hostname = 4;
+  map<string, string> labels = 5;
+  int32 network_namespace_mode = 6;
+}
+
+message CreateWorkloadResponse {
+  Workload workload = 1;
+}

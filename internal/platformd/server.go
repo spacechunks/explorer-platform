@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 
+	workloadv1alpha1 "github.com/spacechunks/platform/api/platformd/workload/v1alpha1"
 	"github.com/spacechunks/platform/internal/datapath"
 
 	"github.com/spacechunks/platform/internal/platformd/proxy/xds"
@@ -61,9 +62,11 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 
 		mgmtServer  = grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 		proxyServer = proxy.NewServer(proxySvc)
+		wlServer    = workload.NewServer(wlSvc)
 	)
 
 	proxyv1alpha1.RegisterProxyServiceServer(mgmtServer, proxyServer)
+	workloadv1alpha1.RegisterWorkloadServiceServer(mgmtServer, wlServer)
 	xds.CreateAndRegisterServer(ctx, mgmtServer, xdsCfg)
 
 	bpf, err := datapath.LoadBPF()
@@ -81,11 +84,11 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 
 	// before we start our grpc services make sure our system workloads are running
 	if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
-		Name:             "envoy",
-		Image:            cfg.EnvoyImage,
-		Namespace:        "system",
-		NetworkNamespace: workload.NetworkNamespaceHost,
-		Labels:           workload.SystemWorkloadLabels("envoy"),
+		Name:                 "envoy",
+		Image:                cfg.EnvoyImage,
+		Namespace:            "system",
+		NetworkNamespaceMode: int32(runtimev1.NamespaceMode_NODE),
+		Labels:               workload.SystemWorkloadLabels("envoy"),
 	}, workload.SystemWorkloadLabels("envoy")); err != nil {
 		return fmt.Errorf("ensure envoy: %w", err)
 	}
