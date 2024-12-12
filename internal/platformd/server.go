@@ -84,11 +84,11 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 
 	// before we start our grpc services make sure our system workloads are running
 	if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
-		Name:             "envoy",
-		Image:            cfg.EnvoyImage,
-		Namespace:        "system",
-		NetworkNamespace: workload.NetworkNamespaceHost,
-		Labels:           workload.SystemWorkloadLabels("envoy"),
+		Name:                 "envoy",
+		Image:                cfg.EnvoyImage,
+		Namespace:            "system",
+		NetworkNamespaceMode: int32(runtimev1.NamespaceMode_NODE),
+		Labels:               workload.SystemWorkloadLabels("envoy"),
 	}, workload.SystemWorkloadLabels("envoy")); err != nil {
 		return fmt.Errorf("ensure envoy: %w", err)
 	}

@@ -15,7 +15,7 @@ message Workload {
   string namespace = 4;
   string hostname = 5;
   map<string, string> labels = 6;
-  uint32 network_namespace = 7;
+  int32 network_namespace_mode = 7;
 }
 
 message CreateWorkloadRequest {
@@ -24,7 +24,7 @@ message CreateWorkloadRequest {
   string namespace = 3;
   string hostname = 4;
   map<string, string> labels = 5;
-  uint32 network_namespace = 6;
+  int32 network_namespace_mode = 6;
 }
 
 message CreateWorkloadResponse {

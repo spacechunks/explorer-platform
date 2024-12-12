@@ -10,25 +10,29 @@ import (
 	runtimev1 "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
-const NetworkNamespaceHost = 2
-
 type Workload struct {
-	ID               string
-	Name             string
-	Image            string
-	Namespace        string
-	Hostname         string
-	Labels           map[string]string
-	NetworkNamespace int
+	ID                   string
+	Name                 string
+	Image                string
+	Namespace            string
+	Hostname             string
+	Labels               map[string]string
+	NetworkNamespaceMode int32
 }
 
 type CreateOptions struct {
-	Name             string
-	Image            string
-	Namespace        string
-	Hostname         string
-	Labels           map[string]string
-	NetworkNamespace int
+	Name      string
+	Image     string
+	Namespace string
+	Hostname  string
+	Labels    map[string]string
+
+	// NetworkNamespaceMode as per [runtimev1.NamespaceMode].
+	// keeping this value an int32 is intentional, so the workload
+	// api does not rely on runtime version specific value mapping,
+	// which would be the case if we were defining enum values for each
+	// [runtimev1.NamespaceMode] value.
+	NetworkNamespaceMode int32
 }
 
 const podLogDir = "/var/log/platformd/pods"
@@ -116,7 +120,7 @@ func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) (Wo
 		Linux: &runtimev1.LinuxPodSandboxConfig{
 			SecurityContext: &runtimev1.LinuxSandboxSecurityContext{
 				NamespaceOptions: &runtimev1.NamespaceOption{
-					Network: runtimev1.NamespaceMode(opts.NetworkNamespace),
+					Network: runtimev1.NamespaceMode(opts.NetworkNamespaceMode),
 				},
 			},
 		},
@@ -159,13 +163,13 @@ func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) (Wo
 
 	logger.InfoContext(ctx, "started container", "container_id", ctrResp.ContainerId)
 	return Workload{
-		ID:               id.String(),
-		Name:             opts.Name,
-		Image:            opts.Image,
-		Namespace:        opts.Namespace,
-		Hostname:         opts.Hostname,
-		Labels:           opts.Labels,
-		NetworkNamespace: opts.NetworkNamespace,
+		ID:                   id.String(),
+		Name:                 opts.Name,
+		Image:                opts.Image,
+		Namespace:            opts.Namespace,
+		Hostname:             opts.Hostname,
+		Labels:               opts.Labels,
+		NetworkNamespaceMode: opts.NetworkNamespaceMode,
 	}, nil
 }
 

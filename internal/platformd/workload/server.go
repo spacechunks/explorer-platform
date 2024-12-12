@@ -40,12 +40,12 @@ func (s *Server) CreateWorkload(
 	req *workloadv1alpha1.CreateWorkloadRequest,
 ) (*workloadv1alpha1.CreateWorkloadResponse, error) {
 	opts := CreateOptions{
-		Name:             req.Name,
-		Image:            req.Image,
-		Namespace:        req.Namespace,
-		Hostname:         req.Hostname,
-		Labels:           req.Labels,
-		NetworkNamespace: int(req.NetworkNamespace),
+		Name:                 req.Name,
+		Image:                req.Image,
+		Namespace:            req.Namespace,
+		Hostname:             req.Hostname,
+		Labels:               req.Labels,
+		NetworkNamespaceMode: req.NetworkNamespaceMode,
 	}
 
 	w, err := s.svc.CreateWorkload(ctx, opts)
@@ -59,13 +59,13 @@ func (s *Server) CreateWorkload(
 	//
 	return &workloadv1alpha1.CreateWorkloadResponse{
 		Workload: &workloadv1alpha1.Workload{
-			Id:               w.ID,
-			Name:             w.Name,
-			Image:            w.Image,
-			Namespace:        w.Namespace,
-			Hostname:         w.Hostname,
-			Labels:           w.Labels,
-			NetworkNamespace: uint32(w.NetworkNamespace),
+			Id:                   w.ID,
+			Name:                 w.Name,
+			Image:                w.Image,
+			Namespace:            w.Namespace,
+			Hostname:             w.Hostname,
+			Labels:               w.Labels,
+			NetworkNamespaceMode: int32(w.NetworkNamespaceMode),
 		},
 	}, nil
 }
