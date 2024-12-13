@@ -5,3 +5,4 @@ conf
 work/
 nodedev/ptpnat
 /platformd
+/cmd/test
