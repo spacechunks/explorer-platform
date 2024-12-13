@@ -16,11 +16,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-GOOS=linux GOARCH=arm64 go build -o nodedev/ptpnat cmd/ptpnat/main.go
-chmod +x nodedev/ptpnat
+GOOS=linux GOARCH=arm64 go build -o nodedev/netglue cmd/netglue/main.go
+chmod +x nodedev/netglue
 
 hcloud server delete nodedev-yannic
-hcloud server create --name nodedev-yannic --type cax21 --image ubuntu-24.04 --ssh-key yannic-mac-work
+hcloud server create --name nodedev-yannic --type cax21 --image ubuntu-24.04 --ssh-key macos-m2-pro
 
 ip=$(hcloud server ip nodedev-yannic)
 

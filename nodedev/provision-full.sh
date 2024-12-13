@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # Explorer Platform, a platform for hosting and discovering Minecraft servers.
 # Copyright (C) 2024 Yannic Rieger <oss@76k.io>
@@ -26,8 +26,8 @@ wget https://github.com/cilium/pwru/releases/download/v1.0.8/pwru-linux-arm64.ta
 tar -xzvf pwru-linux-arm64.tar.gz
 
 # go
-wget https://go.dev/dl/go1.23.1.linux-arm64.tar.gz
-tar -C /usr/local -xzf go1.23.1.linux-arm64.tar.gz
+wget https://go.dev/dl/go1.23.4.linux-arm64.tar.gz
+tar -C /usr/local -xzf go1.23.4.linux-arm64.tar.gz
 export PATH=$PATH:/usr/local/go/bin
 echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.profile
 
@@ -40,12 +40,12 @@ mkdir -p /opt/cni
 cp -r plugins/bin /opt/cni
 
 # install cni
-cp ptpnat /opt/cni/bin/netglue
+cp netglue /opt/cni/bin/netglue
 mkdir -p /etc/cni/net.d/
 cp /root/10-netglue.conflist /etc/cni/net.d/10-netglue.conflist
 
 # crio
-MAJOR_VERSION=1.30
+MAJOR_VERSION=1.31
 curl -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/v$MAJOR_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/cri-o-apt-keyring.gpg
 echo "deb [signed-by=/etc/apt/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/stable:/v$MAJOR_VERSION/deb/ /" | tee /etc/apt/sources.list.d/cri-o.list
 apt-get update
@@ -55,27 +55,27 @@ sysctl -w net.ipv4.ip_forward=1
 sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf # persist after reboot
 
 # criu
-wget https://github.com/checkpoint-restore/criu/archive/refs/tags/v3.19.tar.gz
-tar -xzvf v3.19.tar.gz
+wget https://github.com/checkpoint-restore/criu/archive/refs/tags/v4.0.tar.gz
+tar -xzvf v4.0.tar.gz
 export DEBIAN_FRONTEND=noninteractive
 apt install -y build-essential asciidoctor libprotobuf-dev
 apt install -y libprotobuf-c-dev protobuf-c-compiler protobuf-compiler
 apt install -y python3-protobuf pkg-config libbsd-dev
 apt install -y iproute2 libnftables-dev libgnutls28-dev
 apt install -y libnl-3-dev libnet-dev libcap-dev
-cd criu-3.19
+cd criu-4.0
 make install
 cd -
 
 # crictl
-VERSION=v1.30.1 # check latest version in /releases page
+VERSION=v1.32.0 # check latest version in /releases page
 ARCH=arm64
 wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-$ARCH.tar.gz
 sudo tar zxvf crictl-$VERSION-linux-$ARCH.tar.gz -C /usr/local/bin
 rm -f crictl-$VERSION-linux-$ARCH.tar.gz
 
 # run nginx pod
-crictl pull docker.io/nginx:stable-alpine-slim
+crictl pull ghcr.io/spacechunks/explorer/conncheck
 pod=$(crictl -t 1m runp pod.json)
 ctr=$(crictl -t 1m create $pod ctr.json pod.json)
 crictl -t 1m start $ctr
