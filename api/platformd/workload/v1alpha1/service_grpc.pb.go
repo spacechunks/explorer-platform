@@ -19,14 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkloadService_CreateWorkload_FullMethodName = "/platformd.workload.v1alpha1.WorkloadService/CreateWorkload"
+	WorkloadService_RunWorkload_FullMethodName = "/platformd.workload.v1alpha1.WorkloadService/RunWorkload"
 )
 
 // WorkloadServiceClient is the client API for WorkloadService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WorkloadServiceClient interface {
-	CreateWorkload(ctx context.Context, in *CreateWorkloadRequest, opts ...grpc.CallOption) (*CreateWorkloadResponse, error)
+	// RunWorkload runs a sandbox with the specified options.
+	RunWorkload(ctx context.Context, in *RunWorkloadRequest, opts ...grpc.CallOption) (*RunWorkloadResponse, error)
 }
 
 type workloadServiceClient struct {
@@ -37,10 +38,10 @@ func NewWorkloadServiceClient(cc grpc.ClientConnInterface) WorkloadServiceClient
 	return &workloadServiceClient{cc}
 }
 
-func (c *workloadServiceClient) CreateWorkload(ctx context.Context, in *CreateWorkloadRequest, opts ...grpc.CallOption) (*CreateWorkloadResponse, error) {
+func (c *workloadServiceClient) RunWorkload(ctx context.Context, in *RunWorkloadRequest, opts ...grpc.CallOption) (*RunWorkloadResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CreateWorkloadResponse)
-	err := c.cc.Invoke(ctx, WorkloadService_CreateWorkload_FullMethodName, in, out, cOpts...)
+	out := new(RunWorkloadResponse)
+	err := c.cc.Invoke(ctx, WorkloadService_RunWorkload_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,8 @@ func (c *workloadServiceClient) CreateWorkload(ctx context.Context, in *CreateWo
 // All implementations must embed UnimplementedWorkloadServiceServer
 // for forward compatibility.
 type WorkloadServiceServer interface {
-	CreateWorkload(context.Context, *CreateWorkloadRequest) (*CreateWorkloadResponse, error)
+	// RunWorkload runs a sandbox with the specified options.
+	RunWorkload(context.Context, *RunWorkloadRequest) (*RunWorkloadResponse, error)
 	mustEmbedUnimplementedWorkloadServiceServer()
 }
 
@@ -62,8 +64,8 @@ type WorkloadServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedWorkloadServiceServer struct{}
 
-func (UnimplementedWorkloadServiceServer) CreateWorkload(context.Context, *CreateWorkloadRequest) (*CreateWorkloadResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateWorkload not implemented")
+func (UnimplementedWorkloadServiceServer) RunWorkload(context.Context, *RunWorkloadRequest) (*RunWorkloadResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunWorkload not implemented")
 }
 func (UnimplementedWorkloadServiceServer) mustEmbedUnimplementedWorkloadServiceServer() {}
 func (UnimplementedWorkloadServiceServer) testEmbeddedByValue()                         {}
@@ -86,20 +88,20 @@ func RegisterWorkloadServiceServer(s grpc.ServiceRegistrar, srv WorkloadServiceS
 	s.RegisterService(&WorkloadService_ServiceDesc, srv)
 }
 
-func _WorkloadService_CreateWorkload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateWorkloadRequest)
+func _WorkloadService_RunWorkload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunWorkloadRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(WorkloadServiceServer).CreateWorkload(ctx, in)
+		return srv.(WorkloadServiceServer).RunWorkload(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: WorkloadService_CreateWorkload_FullMethodName,
+		FullMethod: WorkloadService_RunWorkload_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkloadServiceServer).CreateWorkload(ctx, req.(*CreateWorkloadRequest))
+		return srv.(WorkloadServiceServer).RunWorkload(ctx, req.(*RunWorkloadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -112,8 +114,8 @@ var WorkloadService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*WorkloadServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreateWorkload",
-			Handler:    _WorkloadService_CreateWorkload_Handler,
+			MethodName: "RunWorkload",
+			Handler:    _WorkloadService_RunWorkload_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

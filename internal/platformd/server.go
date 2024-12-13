@@ -83,7 +83,7 @@ func (s *Server) Run(ctx context.Context, cfg Config) error {
 	}
 
 	// before we start our grpc services make sure our system workloads are running
-	if err := wlSvc.EnsureWorkload(ctx, workload.CreateOptions{
+	if err := wlSvc.EnsureWorkload(ctx, workload.RunOptions{
 		Name:                 "envoy",
 		Image:                cfg.EnvoyImage,
 		Namespace:            "system",

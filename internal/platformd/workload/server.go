@@ -35,11 +35,11 @@ func NewServer(svc Service) *Server {
 	}
 }
 
-func (s *Server) CreateWorkload(
+func (s *Server) RunWorkload(
 	ctx context.Context,
-	req *workloadv1alpha1.CreateWorkloadRequest,
-) (*workloadv1alpha1.CreateWorkloadResponse, error) {
-	opts := CreateOptions{
+	req *workloadv1alpha1.RunWorkloadRequest,
+) (*workloadv1alpha1.RunWorkloadResponse, error) {
+	opts := RunOptions{
 		Name:                 req.Name,
 		Image:                req.Image,
 		Namespace:            req.Namespace,
@@ -48,7 +48,7 @@ func (s *Server) CreateWorkload(
 		NetworkNamespaceMode: req.NetworkNamespaceMode,
 	}
 
-	w, err := s.svc.CreateWorkload(ctx, opts)
+	w, err := s.svc.RunWorkload(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (s *Server) CreateWorkload(
 	//                which contains conversion logic from domain
 	//                to grpc object
 	//
-	return &workloadv1alpha1.CreateWorkloadResponse{
+	return &workloadv1alpha1.RunWorkloadResponse{
 		Workload: &workloadv1alpha1.Workload{
 			Id:                   w.ID,
 			Name:                 w.Name,

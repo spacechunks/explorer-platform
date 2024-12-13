@@ -5,20 +5,42 @@ package platformd.workload.v1alpha1;
 option go_package = "github.com/spacechunks/explorer-platform/api/platformd/workload/v1alpha1";
 
 service WorkloadService {
-  rpc CreateWorkload(CreateWorkloadRequest) returns (CreateWorkloadResponse);
+  // RunWorkload runs a sandbox with the specified options.
+  //
+  // the created workload will be reachable from the public
+  // internet on port 25565/tcp. programs running in the workload
+  // have access to the external network, but cannot be reached
+  // from the outside without the program initiating the connection
+  // first.
+  rpc RunWorkload(RunWorkloadRequest) returns (RunWorkloadResponse);
 }
 
 message Workload {
+  // id is a universally unique value identifying the workload.
+  // currently this is in UUIDv7 format.
   string id = 1;
+
+  // name of the workload.
   string name = 2;
+
+  // image is a url pointing to an image living in an oci compatible
+  // registry.
   string image = 3;
+
+  // namespace the workload is be created in.
   string namespace = 4;
+
+  // hostname of the pod.
   string hostname = 5;
+
+  // labels applied to the pod.
   map<string, string> labels = 6;
+
+  // the network namespace' mode as per [runtimev1.NamespaceMode].
   int32 network_namespace_mode = 7;
 }
 
-message CreateWorkloadRequest {
+message RunWorkloadRequest {
   string name = 1;
   string image = 2;
   string namespace = 3;
@@ -27,6 +49,6 @@ message CreateWorkloadRequest {
   int32 network_namespace_mode = 6;
 }
 
-message CreateWorkloadResponse {
+message RunWorkloadResponse {
   Workload workload = 1;
 }

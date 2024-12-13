@@ -20,7 +20,7 @@ type Workload struct {
 	NetworkNamespaceMode int32
 }
 
-type CreateOptions struct {
+type RunOptions struct {
 	Name      string
 	Image     string
 	Namespace string
@@ -38,8 +38,8 @@ type CreateOptions struct {
 const podLogDir = "/var/log/platformd/pods"
 
 type Service interface {
-	CreateWorkload(ctx context.Context, opts CreateOptions) (Workload, error)
-	EnsureWorkload(ctx context.Context, opts CreateOptions, labelSelector map[string]string) error
+	RunWorkload(ctx context.Context, opts RunOptions) (Workload, error)
+	EnsureWorkload(ctx context.Context, opts RunOptions, labelSelector map[string]string) error
 }
 
 type criService struct {
@@ -64,7 +64,7 @@ func NewService(
 // if ListPodSandbox returns 0 items, a pod with the passed configuration is created.
 // Currently, this function is designed for a single item returned by the label selector.
 // If multiple items are returned the first one will be picked.
-func (s *criService) EnsureWorkload(ctx context.Context, opts CreateOptions, labelSelector map[string]string) error {
+func (s *criService) EnsureWorkload(ctx context.Context, opts RunOptions, labelSelector map[string]string) error {
 	resp, err := s.rtClient.ListPodSandbox(ctx, &runtimev1.ListPodSandboxRequest{
 		Filter: &runtimev1.PodSandboxFilter{
 			LabelSelector: labelSelector,
@@ -87,16 +87,16 @@ func (s *criService) EnsureWorkload(ctx context.Context, opts CreateOptions, lab
 		"label_selector", labelSelector,
 	)
 
-	if _, err := s.CreateWorkload(ctx, opts); err != nil {
+	if _, err := s.RunWorkload(ctx, opts); err != nil {
 		return fmt.Errorf("create pod: %w", err)
 	}
 	return nil
 }
 
-// CreateWorkload calls the CRI to create a new pod defined by [CreateOptions].
+// CreateWorkload calls the CRI to create a new pod defined by [RunOptions].
 // returns the generated uuidv7 ID of the workload. this id is also used in the
 // pods metadata uid field.
-func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) (Workload, error) {
+func (s *criService) RunWorkload(ctx context.Context, opts RunOptions) (Workload, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return Workload{}, fmt.Errorf("new uuid: %w", err)
@@ -114,7 +114,7 @@ func (s *criService) CreateWorkload(ctx context.Context, opts CreateOptions) (Wo
 			Uid:       id.String(),
 			Namespace: opts.Namespace,
 		},
-		Hostname:     opts.Hostname,
+		Hostname:     opts.Hostname, // TODO: explore if we can use the id as the hostname
 		LogDirectory: podLogDir,
 		Labels:       opts.Labels,
 		Linux: &runtimev1.LinuxPodSandboxConfig{
