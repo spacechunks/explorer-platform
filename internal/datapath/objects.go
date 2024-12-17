@@ -20,9 +20,11 @@ package datapath
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -51,6 +53,14 @@ type Objects struct {
 }
 
 func LoadBPF() (*Objects, error) {
+	if err := os.MkdirAll(progPinPath, 0777); err != nil {
+		return nil, fmt.Errorf("create prog dir: %w", err)
+	}
+
+	if err := os.MkdirAll(mapPinPath, 0777); err != nil {
+		return nil, fmt.Errorf("create map dir: %w", err)
+	}
+
 	var snatObjs snatObjects
 	if err := loadSnatObjects(&snatObjs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
@@ -70,12 +80,20 @@ func LoadBPF() (*Objects, error) {
 	}
 
 	var arpObjs arpObjects
-	if err := loadArpObjects(&arpObjs, nil); err != nil {
+	if err := loadArpObjects(&arpObjs, &ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{
+			PinPath: mapPinPath,
+		},
+	}); err != nil {
 		return nil, fmt.Errorf("load arp objs: %w", err)
 	}
 
 	var tproxyObjs tproxyObjects
-	if err := loadTproxyObjects(&tproxyObjs, nil); err != nil {
+	if err := loadTproxyObjects(&tproxyObjs, &ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{
+			PinPath: mapPinPath,
+		},
+	}); err != nil {
 		return nil, fmt.Errorf("load tproxy objs: %w", err)
 	}
 
@@ -150,8 +168,10 @@ func (o *Objects) AttachAndPinGetsockopt(cgroupPath string) error {
 	if err != nil {
 		return fmt.Errorf("attach: %w", err)
 	}
-
 	if err := l.Pin(fmt.Sprintf("%s/cgroup_getsockopt", progPinPath)); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil
+		}
 		return fmt.Errorf("pin: %w", err)
 	}
 

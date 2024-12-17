@@ -4,5 +4,5 @@ conf
 .envrc
 work/
 nodedev/netglue
-/platformd
+nodedev/platformd
 /cmd/test

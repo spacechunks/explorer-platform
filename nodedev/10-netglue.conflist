@@ -5,6 +5,7 @@
     {
       "type": "netglue",
       "hostIface": "eth0",
+      "criListenSock": "unix///var/run/crio/crio.sock"
       "ipam": {
         "type": "host-local",
         "ranges":[

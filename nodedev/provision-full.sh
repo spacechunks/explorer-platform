@@ -21,6 +21,11 @@ apt update
 # linux-tools-6.8.0-38-generic needed for bpftool
 apt-get install -y gnupg2 git linux-tools-6.8.0-38-generic
 
+# platformd
+mkdir /etc/platformd
+cp config.json /etc/platformd/config.json
+cp envoy-xds.yaml /etc/platformd/proxy.conf
+
 # pwru
 wget https://github.com/cilium/pwru/releases/download/v1.0.8/pwru-linux-arm64.tar.gz
 tar -xzvf pwru-linux-arm64.tar.gz
@@ -75,7 +80,7 @@ sudo tar zxvf crictl-$VERSION-linux-$ARCH.tar.gz -C /usr/local/bin
 rm -f crictl-$VERSION-linux-$ARCH.tar.gz
 
 # run nginx pod
-crictl pull ghcr.io/spacechunks/explorer/conncheck
-pod=$(crictl -t 1m runp pod.json)
-ctr=$(crictl -t 1m create $pod ctr.json pod.json)
-crictl -t 1m start $ctr
+# crictl pull ghcr.io/spacechunks/explorer/conncheck
+# pod=$(crictl -t 1m runp pod.json)
+# ctr=$(crictl -t 1m create $pod ctr.json pod.json)
+# crictl -t 1m start $ctr

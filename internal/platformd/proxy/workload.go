@@ -3,8 +3,10 @@ package proxy
 import (
 	"fmt"
 	"net/netip"
+	"time"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -14,7 +16,20 @@ import (
 	"github.com/spacechunks/platform/internal/platformd/proxy/xds"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
+
+func originalDstClusterResource() *clusterv3.Cluster {
+	return &clusterv3.Cluster{
+		Name: originalDstClusterName,
+		ClusterDiscoveryType: &clusterv3.Cluster_Type{
+			Type: clusterv3.Cluster_ORIGINAL_DST,
+		},
+		ConnectTimeout:  durationpb.New(time.Second * 5),
+		DnsLookupFamily: clusterv3.Cluster_V4_ONLY,
+		LbPolicy:        clusterv3.Cluster_CLUSTER_PROVIDED,
+	}
+}
 
 func workloadResources(
 	workloadID string,

@@ -20,6 +20,11 @@ type Workload struct {
 	NetworkNamespaceMode int32
 }
 
+type Mount struct {
+	ContainerPath string
+	HostPath      string
+}
+
 type RunOptions struct {
 	Name      string
 	Image     string
@@ -33,6 +38,9 @@ type RunOptions struct {
 	// which would be the case if we were defining enum values for each
 	// [runtimev1.NamespaceMode] value.
 	NetworkNamespaceMode int32
+
+	Mounts []Mount
+	Args   []string
 }
 
 const podLogDir = "/var/log/platformd/pods"
@@ -93,7 +101,7 @@ func (s *criService) EnsureWorkload(ctx context.Context, opts RunOptions, labelS
 	return nil
 }
 
-// CreateWorkload calls the CRI to create a new pod defined by [RunOptions].
+// RunWorkload calls the CRI to create a new pod defined by [RunOptions].
 // returns the generated uuidv7 ID of the workload. this id is also used in the
 // pods metadata uid field.
 func (s *criService) RunWorkload(ctx context.Context, opts RunOptions) (Workload, error) {
@@ -136,7 +144,7 @@ func (s *criService) RunWorkload(ctx context.Context, opts RunOptions) (Workload
 	logger = logger.With("pod_id", sboxResp.PodSandboxId)
 	logger.InfoContext(ctx, "started pod sandbox")
 
-	ctrResp, err := s.rtClient.CreateContainer(ctx, &runtimev1.CreateContainerRequest{
+	req := &runtimev1.CreateContainerRequest{
 		PodSandboxId: sboxResp.PodSandboxId,
 		Config: &runtimev1.ContainerConfig{
 			Metadata: &runtimev1.ContainerMetadata{
@@ -144,13 +152,27 @@ func (s *criService) RunWorkload(ctx context.Context, opts RunOptions) (Workload
 				Attempt: 0,
 			},
 			Image: &runtimev1.ImageSpec{
-				Image: opts.Image,
+				UserSpecifiedImage: opts.Image,
+				Image:              opts.Image,
 			},
 			Labels:  opts.Labels,
 			LogPath: fmt.Sprintf("%s_%s", opts.Namespace, opts.Name),
+			Args:    opts.Args,
 		},
 		SandboxConfig: sboxCfg,
-	})
+	}
+
+	mnts := make([]*runtimev1.Mount, 0, len(opts.Mounts))
+	for _, m := range opts.Mounts {
+		mnts = append(mnts, &runtimev1.Mount{
+			ContainerPath: m.ContainerPath,
+			HostPath:      m.HostPath,
+		})
+	}
+
+	req.Config.Mounts = mnts
+
+	ctrResp, err := s.rtClient.CreateContainer(ctx, req)
 	if err != nil {
 		return Workload{}, fmt.Errorf("create container: %w", err)
 	}

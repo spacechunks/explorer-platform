@@ -19,8 +19,7 @@
 package proxy
 
 const (
-	dnsGroupKey            = "dns"
-	dnsCluster             = "dns"
+	dnsClusterName         = "dns"
 	originalDstClusterName = "public"
 	proxyTCPPort           = 9111
 	proxyHTTPPort          = 9080
