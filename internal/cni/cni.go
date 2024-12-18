@@ -44,7 +44,6 @@ type Conf struct {
 	types.NetConf
 	HostIface           string `json:"hostIface"`
 	PlatformdListenSock string `json:"platformdListenSock"`
-	CRIListenSock       string `json:"criListenSock"`
 }
 
 type CNI struct {
