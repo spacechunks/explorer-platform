@@ -125,6 +125,53 @@ func (_c *MockCniHandler_AllocIPs_Call) RunAndReturn(run func(string, []byte) ([
 	return _c
 }
 
+// AttachCtrVethBPF provides a mock function with given fields: ifaceName, netNS
+func (_m *MockCniHandler) AttachCtrVethBPF(ifaceName string, netNS string) error {
+	ret := _m.Called(ifaceName, netNS)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AttachCtrVethBPF")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(ifaceName, netNS)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockCniHandler_AttachCtrVethBPF_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachCtrVethBPF'
+type MockCniHandler_AttachCtrVethBPF_Call struct {
+	*mock.Call
+}
+
+// AttachCtrVethBPF is a helper method to define mock.On call
+//   - ifaceName string
+//   - netNS string
+func (_e *MockCniHandler_Expecter) AttachCtrVethBPF(ifaceName interface{}, netNS interface{}) *MockCniHandler_AttachCtrVethBPF_Call {
+	return &MockCniHandler_AttachCtrVethBPF_Call{Call: _e.mock.On("AttachCtrVethBPF", ifaceName, netNS)}
+}
+
+func (_c *MockCniHandler_AttachCtrVethBPF_Call) Run(run func(ifaceName string, netNS string)) *MockCniHandler_AttachCtrVethBPF_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockCniHandler_AttachCtrVethBPF_Call) Return(_a0 error) *MockCniHandler_AttachCtrVethBPF_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockCniHandler_AttachCtrVethBPF_Call) RunAndReturn(run func(string, string) error) *MockCniHandler_AttachCtrVethBPF_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // AttachDNATBPF provides a mock function with given fields: ifaceName
 func (_m *MockCniHandler) AttachDNATBPF(ifaceName string) error {
 	ret := _m.Called(ifaceName)
