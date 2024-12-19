@@ -90,6 +90,7 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 		return ErrHostIfaceNotFound
 	}
 
+	// TODO: move to platformd
 	if err := c.handler.AttachDNATBPF(conf.HostIface); err != nil {
 		return fmt.Errorf("failed to attach dnat bpf to %s: %w", conf.HostIface, err)
 	}
@@ -113,12 +114,16 @@ func (c *CNI) ExecAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	if err := c.handler.AttachHostVethBPF(hostVethName); err != nil {
-		return fmt.Errorf("attach snat: %w", err)
+		return fmt.Errorf("attach host peer: %w", err)
 	}
 
-	if err := c.handler.ConfigureSNAT(conf.HostIface); err != nil {
-		return fmt.Errorf("configure snat: %w", err)
+	if err := c.handler.AttachCtrVethBPF(podVethName, args.Netns); err != nil {
+		return fmt.Errorf("attach ctr peer: %w", err)
 	}
+
+	//if err := c.handler.ConfigureSNAT(conf.HostIface); err != nil {
+	//	return fmt.Errorf("configure snat: %w", err)
+	//}
 
 	if err := c.handler.AddDefaultRoute(args.Netns); err != nil {
 		return fmt.Errorf("add default route: %w", err)
